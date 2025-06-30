@@ -122,3 +122,34 @@ A modern, responsive template for barbershops featuring an automated online book
 ## User Preferences
 
 Preferred communication style: Simple, everyday language.
+
+## Commercialization Strategy
+
+### Target Market
+- Local barbershops without digital presence
+- Barbers using paper schedules
+- New barbershops needing complete solution
+- Male beauty salons wanting to professionalize
+
+### Pricing Strategy
+- Basic Package: R$ 497 (solo barbers)
+- Professional Package: R$ 897 (established barbershops)
+- Premium Package: R$ 1,497 (barbershop chains)
+
+### Sales Approach
+- Direct sales (door-to-door)
+- Local digital marketing
+- Strategic partnerships with suppliers
+- Proof of concept demonstrations
+
+### Client Customization Process
+1. Data collection via standardized form
+2. Visual identity definition
+3. Service and staff setup
+4. 3-week delivery timeline
+5. Training and post-delivery support
+
+### Revenue Goals
+- Month 1-6: 2-3 sites/month (R$ 1,500-2,700)
+- Month 7-12: 5-8 sites/month (R$ 3,500-7,200)
+- Year 2+: 10+ sites/month (R$ 8,000+)
