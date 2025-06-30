@@ -118,6 +118,7 @@ A modern, responsive template for barbershops featuring an automated online book
 ## Changelog
 
 - June 30, 2025. Initial setup
+- June 30, 2025. Project structure organized with dedicated folders for documentation, assets, and scripts
 
 ## User Preferences
 
