@@ -206,8 +206,8 @@ function generateAvailableTimeSlots(
   date: Date,
   durationMinutes: number,
   existingAppointments: any[]
-) {
-  const slots = [];
+): { inicio: string; fim: string; display: string }[] {
+  const slots: { inicio: string; fim: string; display: string }[] = [];
   const workStart = 9; // 9:00 AM
   const workEnd = 19; // 7:00 PM
   const slotInterval = 15; // 15-minute intervals

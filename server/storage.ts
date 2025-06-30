@@ -129,21 +129,23 @@ export class DatabaseStorage implements IStorage {
     const endOfDay = new Date(data);
     endOfDay.setHours(23, 59, 59, 999);
 
-    let query = db
+    const whereConditions = barbeiroId 
+      ? and(
+          gte(agendamentos.data_hora_inicio, startOfDay),
+          lte(agendamentos.data_hora_inicio, endOfDay),
+          eq(agendamentos.barbeiro_id, barbeiroId)
+        )
+      : and(
+          gte(agendamentos.data_hora_inicio, startOfDay),
+          lte(agendamentos.data_hora_inicio, endOfDay)
+        );
+
+    const query = db
       .select()
       .from(agendamentos)
       .innerJoin(servicos, eq(agendamentos.servico_id, servicos.id))
       .innerJoin(barbeiros, eq(agendamentos.barbeiro_id, barbeiros.id))
-      .where(
-        and(
-          gte(agendamentos.data_hora_inicio, startOfDay),
-          lte(agendamentos.data_hora_inicio, endOfDay)
-        )
-      );
-
-    if (barbeiroId) {
-      query = query.where(eq(agendamentos.barbeiro_id, barbeiroId));
-    }
+      .where(whereConditions);
 
     return await query.then(rows => rows.map(row => ({
       ...row.agendamentos,
