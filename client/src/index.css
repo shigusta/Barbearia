@@ -1,0 +1,165 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=Inter:wght@300;400;500;600;700&display=swap');
+
+:root {
+  --background: hsl(0, 0%, 0%);
+  --foreground: hsl(0, 0%, 100%);
+  --muted: hsl(0, 0%, 10.2%);
+  --muted-foreground: hsl(0, 0%, 63.9%);
+  --popover: hsl(0, 0%, 6.7%);
+  --popover-foreground: hsl(0, 0%, 98%);
+  --card: hsl(0, 0%, 10.2%);
+  --card-foreground: hsl(0, 0%, 98%);
+  --border: hsl(0, 0%, 20.4%);
+  --input: hsl(0, 0%, 20.4%);
+  --primary: hsl(45, 93.4%, 47.5%);
+  --primary-foreground: hsl(0, 0%, 0%);
+  --secondary: hsl(0, 0%, 20.4%);
+  --secondary-foreground: hsl(0, 0%, 98%);
+  --accent: hsl(0, 0%, 20.4%);
+  --accent-foreground: hsl(0, 0%, 98%);
+  --destructive: hsl(0, 62.8%, 30.6%);
+  --destructive-foreground: hsl(0, 0%, 98%);
+  --ring: hsl(45, 93.4%, 47.5%);
+  --radius: 0.5rem;
+  
+  /* Elite Barber specific colors */
+  --elite-gold: hsl(45, 93.4%, 47.5%);
+  --elite-red: hsl(0, 100%, 27.3%);
+  --elite-dark: hsl(0, 0%, 10.2%);
+  --elite-gray: hsl(0, 0%, 20%);
+}
+
+.dark {
+  --background: hsl(0, 0%, 0%);
+  --foreground: hsl(0, 0%, 100%);
+  --muted: hsl(0, 0%, 10.2%);
+  --muted-foreground: hsl(0, 0%, 63.9%);
+  --popover: hsl(0, 0%, 6.7%);
+  --popover-foreground: hsl(0, 0%, 98%);
+  --card: hsl(0, 0%, 10.2%);
+  --card-foreground: hsl(0, 0%, 98%);
+  --border: hsl(0, 0%, 20.4%);
+  --input: hsl(0, 0%, 20.4%);
+  --primary: hsl(45, 93.4%, 47.5%);
+  --primary-foreground: hsl(0, 0%, 0%);
+  --secondary: hsl(0, 0%, 20.4%);
+  --secondary-foreground: hsl(0, 0%, 98%);
+  --accent: hsl(0, 0%, 20.4%);
+  --accent-foreground: hsl(0, 0%, 98%);
+  --destructive: hsl(0, 62.8%, 30.6%);
+  --destructive-foreground: hsl(0, 0%, 98%);
+  --ring: hsl(45, 93.4%, 47.5%);
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply font-body antialiased bg-background text-foreground;
+    font-family: 'Inter', sans-serif;
+  }
+
+  .font-display {
+    font-family: 'Playfair Display', serif;
+  }
+
+  .font-body {
+    font-family: 'Inter', sans-serif;
+  }
+}
+
+@layer utilities {
+  .elite-gold {
+    color: var(--elite-gold);
+  }
+  
+  .bg-elite-gold {
+    background-color: var(--elite-gold);
+  }
+  
+  .elite-red {
+    color: var(--elite-red);
+  }
+  
+  .bg-elite-red {
+    background-color: var(--elite-red);
+  }
+  
+  .elite-dark {
+    background-color: var(--elite-dark);
+  }
+  
+  .elite-gray {
+    background-color: var(--elite-gray);
+  }
+  
+  .border-elite-gold {
+    border-color: var(--elite-gold);
+  }
+  
+  .text-elite-gold {
+    color: var(--elite-gold);
+  }
+  
+  .hover\:bg-elite-gold:hover {
+    background-color: var(--elite-gold);
+  }
+  
+  .hover\:text-elite-gold:hover {
+    color: var(--elite-gold);
+  }
+}
+
+/* Smooth scrolling */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Custom animations */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp 0.6s ease-out;
+}
+
+/* Hero background */
+.hero-bg {
+  background-image: linear-gradient(rgba(0,0,0,0.7), rgba(0,0,0,0.5)), 
+                    url('https://images.unsplash.com/photo-1585747860715-2ba37e788b70?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1920&h=1080');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--elite-dark);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--elite-gold);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(45, 93.4%, 60%);
+}
