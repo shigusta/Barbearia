@@ -89,8 +89,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Create appointment
   app.post("/api/agendar", async (req, res) => {
     try {
-      const validation = createAgendamentoSchema.safeParse(req.body);
+      console.log("Received booking data:", req.body);
+      
+      // Transform dates to proper format before validation
+      const bookingData = {
+        ...req.body,
+        data_hora_inicio: req.body.data_hora_inicio ? new Date(req.body.data_hora_inicio) : undefined,
+        data_hora_fim: req.body.data_hora_fim ? new Date(req.body.data_hora_fim) : undefined,
+      };
+      
+      const validation = insertAgendamentoSchema.safeParse(bookingData);
       if (!validation.success) {
+        console.log("Validation errors:", validation.error.errors);
         return res.status(400).json({ 
           message: "Dados inválidos",
           errors: validation.error.errors 
