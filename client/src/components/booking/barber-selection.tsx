@@ -12,11 +12,11 @@ interface BarberSelectionProps {
   prevStep: () => void;
 }
 
-export default function BarberSelection({ 
-  bookingData, 
-  updateBookingData, 
+export default function BarberSelection({
+  bookingData,
+  updateBookingData,
   nextStep,
-  prevStep 
+  prevStep,
 }: BarberSelectionProps) {
   const { data: barbeiros, isLoading } = useQuery<Barbeiro[]>({
     queryKey: ["/api/barbeiros"],
@@ -27,15 +27,18 @@ export default function BarberSelection({
   };
 
   const handleContinue = () => {
-    if (bookingData.barbeiro_id !== undefined) {
-      nextStep();
+    if (bookingData.barbeiro_id === null) {
+      return; // Prevent proceeding if no barber is selected
     }
+    nextStep();
   };
 
   if (isLoading) {
     return (
       <div className="space-y-4">
-        <h3 className="text-2xl font-display font-bold mb-6">Escolha seu Barbeiro</h3>
+        <h3 className="text-2xl font-display font-bold mb-6">
+          Escolha seu Barbeiro
+        </h3>
         {Array.from({ length: 3 }).map((_, i) => (
           <Card key={i} className="elite-gray animate-pulse">
             <CardContent className="p-4">
@@ -49,15 +52,17 @@ export default function BarberSelection({
 
   return (
     <div className="space-y-4">
-      <h3 className="text-2xl font-display font-bold mb-6">Escolha seu Barbeiro</h3>
-      
+      <h3 className="text-2xl font-display font-bold mb-6">
+        Escolha seu Barbeiro
+      </h3>
+
       <div className="space-y-3">
         {/* Option: Any barber */}
         <Card
           className={`cursor-pointer transition-all duration-300 ${
             bookingData.barbeiro_id === undefined
-              ? 'border-2 border-elite-gold bg-elite-gold/10'
-              : 'border-2 border-gray-600 hover:border-gray-500 elite-gray'
+              ? "border-2 border-elite-gold bg-elite-gold/10"
+              : "border-2 border-gray-600 hover:border-gray-500 elite-gray"
           }`}
           onClick={() => handleBarberSelect(null)}
         >
@@ -67,9 +72,13 @@ export default function BarberSelection({
                 <User className="h-6 w-6" />
               </div>
               <div>
-                <h4 className={`font-semibold ${
-                  bookingData.barbeiro_id === undefined ? 'text-elite-gold' : ''
-                }`}>
+                <h4
+                  className={`font-semibold ${
+                    bookingData.barbeiro_id === undefined
+                      ? "text-elite-gold"
+                      : ""
+                  }`}
+                >
                   Qualquer Barbeiro
                 </h4>
                 <p className="text-sm text-gray-400">
@@ -86,8 +95,8 @@ export default function BarberSelection({
             key={barbeiro.id}
             className={`cursor-pointer transition-all duration-300 ${
               bookingData.barbeiro_id === barbeiro.id
-                ? 'border-2 border-elite-gold bg-elite-gold/10'
-                : 'border-2 border-gray-600 hover:border-gray-500 elite-gray'
+                ? "border-2 border-elite-gold bg-elite-gold/10"
+                : "border-2 border-gray-600 hover:border-gray-500 elite-gray"
             }`}
             onClick={() => handleBarberSelect(barbeiro)}
           >
@@ -97,9 +106,13 @@ export default function BarberSelection({
                   {barbeiro.nome.charAt(0).toUpperCase()}
                 </div>
                 <div>
-                  <h4 className={`font-semibold ${
-                    bookingData.barbeiro_id === barbeiro.id ? 'text-elite-gold' : ''
-                  }`}>
+                  <h4
+                    className={`font-semibold ${
+                      bookingData.barbeiro_id === barbeiro.id
+                        ? "text-elite-gold"
+                        : ""
+                    }`}
+                  >
                     {barbeiro.nome}
                   </h4>
                   <p className="text-sm text-gray-400">

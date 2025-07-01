@@ -7,14 +7,19 @@ import { z } from "zod";
 // Validation schemas
 const createAgendamentoSchema = insertAgendamentoSchema.extend({
   nome_cliente: z.string().min(2, "Nome deve ter pelo menos 2 caracteres"),
-  telefone_cliente: z.string().min(10, "Telefone deve ter pelo menos 10 dígitos"),
+  telefone_cliente: z
+    .string()
+    .min(10, "Telefone deve ter pelo menos 10 dígitos"),
   email_cliente: z.string().email("Email inválido"),
 });
 
 const horariosDisponiveisSchema = z.object({
-  data: z.string().transform(str => new Date(str)),
-  servico_id: z.string().transform(str => parseInt(str)),
-  barbeiro_id: z.string().transform(str => parseInt(str)).optional(),
+  data: z.string().transform((str) => new Date(str)),
+  servico_id: z.string().transform((str) => parseInt(str)),
+  barbeiro_id: z
+    .string()
+    .transform((str) => parseInt(str))
+    .optional(),
 });
 
 const contactFormSchema = z.object({
@@ -56,27 +61,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const validation = horariosDisponiveisSchema.safeParse(req.query);
       if (!validation.success) {
-        return res.status(400).json({ 
+        return res.status(400).json({
           message: "Parâmetros inválidos",
-          errors: validation.error.errors 
+          errors: validation.error.errors,
         });
       }
 
       const { data, servico_id, barbeiro_id } = validation.data;
-      
+
       const servico = await storage.getServicoById(servico_id);
       if (!servico) {
         return res.status(404).json({ message: "Serviço não encontrado" });
       }
 
-      // Get existing appointments for the date
-      const agendamentosExistentes = await storage.getAgendamentosByDate(data, barbeiro_id);
-      
-      // Generate available time slots
+      let agendamentosExistentes = [];
+      let totalBarbeirosDisponiveis = 1;
+
+      if (barbeiro_id) {
+        agendamentosExistentes = await storage.getAgendamentosByDate(
+          data,
+          barbeiro_id
+        );
+      } else {
+        const barbeirosAtivos = await storage.getBarbeirosAtivos();
+        totalBarbeirosDisponiveis = barbeirosAtivos.length;
+        agendamentosExistentes = await storage.getAgendamentosByDate(data);
+      }
+
+      if (totalBarbeirosDisponiveis === 0) {
+        return res.json([]);
+      }
+
       const horariosDisponiveis = generateAvailableTimeSlots(
         data,
         servico.duracao_minutos,
-        agendamentosExistentes
+        agendamentosExistentes,
+        totalBarbeirosDisponiveis // Passa a nova variável
       );
 
       res.json(horariosDisponiveis);
@@ -90,20 +110,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/agendar", async (req, res) => {
     try {
       console.log("Received booking data:", req.body);
-      
+
       // Transform dates to proper format before validation
       const bookingData = {
         ...req.body,
-        data_hora_inicio: req.body.data_hora_inicio ? new Date(req.body.data_hora_inicio) : undefined,
-        data_hora_fim: req.body.data_hora_fim ? new Date(req.body.data_hora_fim) : undefined,
+        data_hora_inicio: req.body.data_hora_inicio
+          ? new Date(req.body.data_hora_inicio)
+          : undefined,
+        data_hora_fim: req.body.data_hora_fim
+          ? new Date(req.body.data_hora_fim)
+          : undefined,
       };
-      
+
       const validation = insertAgendamentoSchema.safeParse(bookingData);
       if (!validation.success) {
         console.log("Validation errors:", validation.error.errors);
-        return res.status(400).json({ 
+        return res.status(400).json({
           message: "Dados inválidos",
-          errors: validation.error.errors 
+          errors: validation.error.errors,
         });
       }
 
@@ -115,7 +139,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         agendamentoData.barbeiro_id
       );
 
-      const hasConflict = conflictingAppointments.some(existing => {
+      const hasConflict = conflictingAppointments.some((existing) => {
         const existingStart = new Date(existing.data_hora_inicio);
         const existingEnd = new Date(existing.data_hora_fim);
         const newStart = new Date(agendamentoData.data_hora_inicio);
@@ -129,15 +153,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       if (hasConflict) {
-        return res.status(409).json({ 
-          message: "Desculpe, este horário acabou de ser preenchido. Por favor, escolha outro horário." 
+        return res.status(409).json({
+          message:
+            "Desculpe, este horário acabou de ser preenchido. Por favor, escolha outro horário.",
         });
       }
 
       const agendamento = await storage.createAgendamento(agendamentoData);
-      res.status(201).json({ 
+      res.status(201).json({
         message: "Agendamento realizado com sucesso!",
-        agendamento 
+        agendamento,
       });
     } catch (error) {
       console.error("Error creating appointment:", error);
@@ -162,7 +187,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const id = parseInt(req.params.id);
       const { status } = req.body;
 
-      if (!status || !["confirmado", "cancelado", "concluido"].includes(status)) {
+      if (
+        !status ||
+        !["confirmado", "cancelado", "concluido"].includes(status)
+      ) {
         return res.status(400).json({ message: "Status inválido" });
       }
 
@@ -191,16 +219,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const validation = contactFormSchema.safeParse(req.body);
       if (!validation.success) {
-        return res.status(400).json({ 
+        return res.status(400).json({
           message: "Dados inválidos",
-          errors: validation.error.errors 
+          errors: validation.error.errors,
         });
       }
 
       // In a real implementation, you would send an email or save to database
       console.log("Contact form submission:", validation.data);
-      
-      res.json({ message: "Mensagem enviada com sucesso! Entraremos em contato em breve." });
+
+      res.json({
+        message:
+          "Mensagem enviada com sucesso! Entraremos em contato em breve.",
+      });
     } catch (error) {
       console.error("Error processing contact form:", error);
       res.status(500).json({ message: "Erro interno do servidor" });
@@ -215,7 +246,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 function generateAvailableTimeSlots(
   date: Date,
   durationMinutes: number,
-  existingAppointments: any[]
+  existingAppointments: any[],
+  totalBarbeiros: number // <- NOVO PARÂMETRO
 ): { inicio: string; fim: string; display: string }[] {
   const slots: { inicio: string; fim: string; display: string }[] = [];
   const workStart = 9; // 9:00 AM
@@ -234,32 +266,46 @@ function generateAvailableTimeSlots(
     for (let minute = 0; minute < 60; minute += slotInterval) {
       const slotStart = new Date(date);
       slotStart.setHours(hour, minute, 0, 0);
-      
+
       const slotEnd = new Date(slotStart);
       slotEnd.setMinutes(slotEnd.getMinutes() + durationMinutes);
 
       // Check if slot end time is within working hours
-      if (slotEnd.getHours() >= endHour) {
+      if (
+        slotEnd.getHours() > endHour ||
+        (slotEnd.getHours() === endHour && slotEnd.getMinutes() > 0)
+      ) {
         continue;
       }
 
-      // Check for conflicts with existing appointments
-      const hasConflict = existingAppointments.some(appointment => {
-        const existingStart = new Date(appointment.data_hora_inicio);
-        const existingEnd = new Date(appointment.data_hora_fim);
+      // Conta quantos agendamentos estão acontecendo ao mesmo tempo neste slot
+      const conflictingAppointments = existingAppointments.filter(
+        (appointment) => {
+          const existingStart = new Date(appointment.data_hora_inicio);
+          const existingEnd = new Date(appointment.data_hora_fim);
 
-        return (
-          (slotStart >= existingStart && slotStart < existingEnd) ||
-          (slotEnd > existingStart && slotEnd <= existingEnd) ||
-          (slotStart <= existingStart && slotEnd >= existingEnd)
-        );
-      });
+          // Verifica se há sobreposição de horários
+          return (
+            (slotStart >= existingStart && slotStart < existingEnd) ||
+            (slotEnd > existingStart && slotEnd <= existingEnd) ||
+            (slotStart <= existingStart && slotEnd >= existingEnd)
+          );
+        }
+      );
 
-      if (!hasConflict) {
+      // Se o número de agendamentos conflitantes for MENOR que o total de barbeiros,
+      // significa que pelo menos uma "cadeira" está vaga.
+      if (conflictingAppointments.length < totalBarbeiros) {
         slots.push({
           inicio: slotStart.toISOString(),
           fim: slotEnd.toISOString(),
-          display: `${slotStart.getHours().toString().padStart(2, '0')}:${slotStart.getMinutes().toString().padStart(2, '0')}`
+          display: `${slotStart
+            .getHours()
+            .toString()
+            .padStart(2, "0")}:${slotStart
+            .getMinutes()
+            .toString()
+            .padStart(2, "0")}`,
         });
       }
     }
@@ -280,37 +326,40 @@ async function seedInitialData() {
     // Create barbers
     const barbeiro1 = await storage.createBarbeiro({
       nome: "João Silva",
-      ativo: true
+      ativo: true,
     });
 
     const barbeiro2 = await storage.createBarbeiro({
       nome: "Pedro Santos",
-      ativo: true
+      ativo: true,
     });
 
     // Create services
     await storage.createServico({
       nome: "Corte Tradicional",
-      descricao: "Corte personalizado com técnicas clássicas e modernas, adaptado ao seu estilo e formato do rosto.",
+      descricao:
+        "Corte personalizado com técnicas clássicas e modernas, adaptado ao seu estilo e formato do rosto.",
       duracao_minutos: 45,
       preco: "45.00",
-      ativo: true
+      ativo: true,
     });
 
     await storage.createServico({
       nome: "Barba Terapia",
-      descricao: "Tratamento completo com aparação, modelagem e hidratação profunda usando produtos premium.",
+      descricao:
+        "Tratamento completo com aparação, modelagem e hidratação profunda usando produtos premium.",
       duracao_minutos: 30,
       preco: "35.00",
-      ativo: true
+      ativo: true,
     });
 
     await storage.createServico({
       nome: "Combo Completo",
-      descricao: "Corte + Barba + Sobrancelha. O pacote completo para um visual impecável e renovado.",
+      descricao:
+        "Corte + Barba + Sobrancelha. O pacote completo para um visual impecável e renovado.",
       duracao_minutos: 90,
       preco: "75.00",
-      ativo: true
+      ativo: true,
     });
 
     await storage.createServico({
@@ -318,7 +367,7 @@ async function seedInitialData() {
       descricao: "Aparação e design profissional das sobrancelhas.",
       duracao_minutos: 15,
       preco: "20.00",
-      ativo: true
+      ativo: true,
     });
 
     console.log("Initial data seeded successfully");

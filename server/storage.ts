@@ -1,10 +1,17 @@
-import { 
-  users, barbeiros, servicos, agendamentos,
-  type User, type InsertUser,
-  type Barbeiro, type InsertBarbeiro,
-  type Servico, type InsertServico,
-  type Agendamento, type InsertAgendamento,
-  type AgendamentoComRelacoes
+import {
+  users,
+  barbeiros,
+  servicos,
+  agendamentos,
+  type User,
+  type InsertUser,
+  type Barbeiro,
+  type InsertBarbeiro,
+  type Servico,
+  type InsertServico,
+  type Agendamento,
+  type InsertAgendamento,
+  type AgendamentoComRelacoes,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, gte, lte, desc } from "drizzle-orm";
@@ -17,6 +24,7 @@ export interface IStorage {
 
   // Barbeiros
   getBarbeiros(): Promise<Barbeiro[]>;
+  getBarbeirosAtivos(): Promise<Barbeiro[]>;
   getBarbeiroById(id: number): Promise<Barbeiro | undefined>;
   createBarbeiro(barbeiro: InsertBarbeiro): Promise<Barbeiro>;
 
@@ -28,7 +36,10 @@ export interface IStorage {
   // Agendamentos
   getAgendamentos(): Promise<AgendamentoComRelacoes[]>;
   getAgendamentoById(id: number): Promise<AgendamentoComRelacoes | undefined>;
-  getAgendamentosByDate(data: Date, barbeiroId?: number): Promise<AgendamentoComRelacoes[]>;
+  getAgendamentosByDate(
+    data: Date,
+    barbeiroId?: number
+  ): Promise<AgendamentoComRelacoes[]>;
   createAgendamento(agendamento: InsertAgendamento): Promise<Agendamento>;
   updateAgendamentoStatus(id: number, status: string): Promise<void>;
   deleteAgendamento(id: number): Promise<void>;
@@ -42,15 +53,15 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getUserByUsername(username: string): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.username, username));
+    const [user] = await db
+      .select()
+      .from(users)
+      .where(eq(users.username, username));
     return user || undefined;
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
-    const [user] = await db
-      .insert(users)
-      .values(insertUser)
-      .returning();
+    const [user] = await db.insert(users).values(insertUser).returning();
     return user;
   }
 
@@ -59,8 +70,15 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(barbeiros).where(eq(barbeiros.ativo, true));
   }
 
+  async getBarbeirosAtivos(): Promise<Barbeiro[]> {
+    return await db.select().from(barbeiros).where(eq(barbeiros.ativo, true));
+  }
+
   async getBarbeiroById(id: number): Promise<Barbeiro | undefined> {
-    const [barbeiro] = await db.select().from(barbeiros).where(eq(barbeiros.id, id));
+    const [barbeiro] = await db
+      .select()
+      .from(barbeiros)
+      .where(eq(barbeiros.id, id));
     return barbeiro || undefined;
   }
 
@@ -78,7 +96,10 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getServicoById(id: number): Promise<Servico | undefined> {
-    const [servico] = await db.select().from(servicos).where(eq(servicos.id, id));
+    const [servico] = await db
+      .select()
+      .from(servicos)
+      .where(eq(servicos.id, id));
     return servico || undefined;
   }
 
@@ -98,38 +119,45 @@ export class DatabaseStorage implements IStorage {
       .innerJoin(servicos, eq(agendamentos.servico_id, servicos.id))
       .innerJoin(barbeiros, eq(agendamentos.barbeiro_id, barbeiros.id))
       .orderBy(desc(agendamentos.data_hora_inicio))
-      .then(rows => rows.map(row => ({
-        ...row.agendamentos,
-        servico: row.servicos,
-        barbeiro: row.barbeiros
-      })));
+      .then((rows) =>
+        rows.map((row) => ({
+          ...row.agendamentos,
+          servico: row.servicos,
+          barbeiro: row.barbeiros,
+        }))
+      );
   }
 
-  async getAgendamentoById(id: number): Promise<AgendamentoComRelacoes | undefined> {
+  async getAgendamentoById(
+    id: number
+  ): Promise<AgendamentoComRelacoes | undefined> {
     const [result] = await db
       .select()
       .from(agendamentos)
       .innerJoin(servicos, eq(agendamentos.servico_id, servicos.id))
       .innerJoin(barbeiros, eq(agendamentos.barbeiro_id, barbeiros.id))
       .where(eq(agendamentos.id, id));
-    
+
     if (!result) return undefined;
-    
+
     return {
       ...result.agendamentos,
       servico: result.servicos,
-      barbeiro: result.barbeiros
+      barbeiro: result.barbeiros,
     };
   }
 
-  async getAgendamentosByDate(data: Date, barbeiroId?: number): Promise<AgendamentoComRelacoes[]> {
+  async getAgendamentosByDate(
+    data: Date,
+    barbeiroId?: number
+  ): Promise<AgendamentoComRelacoes[]> {
     const startOfDay = new Date(data);
     startOfDay.setHours(0, 0, 0, 0);
-    
+
     const endOfDay = new Date(data);
     endOfDay.setHours(23, 59, 59, 999);
 
-    const whereConditions = barbeiroId 
+    const whereConditions = barbeiroId
       ? and(
           gte(agendamentos.data_hora_inicio, startOfDay),
           lte(agendamentos.data_hora_inicio, endOfDay),
@@ -147,14 +175,18 @@ export class DatabaseStorage implements IStorage {
       .innerJoin(barbeiros, eq(agendamentos.barbeiro_id, barbeiros.id))
       .where(whereConditions);
 
-    return await query.then(rows => rows.map(row => ({
-      ...row.agendamentos,
-      servico: row.servicos,
-      barbeiro: row.barbeiros
-    })));
+    return await query.then((rows) =>
+      rows.map((row) => ({
+        ...row.agendamentos,
+        servico: row.servicos,
+        barbeiro: row.barbeiros,
+      }))
+    );
   }
 
-  async createAgendamento(insertAgendamento: InsertAgendamento): Promise<Agendamento> {
+  async createAgendamento(
+    insertAgendamento: InsertAgendamento
+  ): Promise<Agendamento> {
     const [agendamento] = await db
       .insert(agendamentos)
       .values(insertAgendamento)
@@ -170,9 +202,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteAgendamento(id: number): Promise<void> {
-    await db
-      .delete(agendamentos)
-      .where(eq(agendamentos.id, id));
+    await db.delete(agendamentos).where(eq(agendamentos.id, id));
   }
 }
 

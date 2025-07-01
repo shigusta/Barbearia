@@ -9,17 +9,21 @@ import Services from "@/pages/services";
 import Booking from "@/pages/booking";
 import Contact from "@/pages/contact";
 import Admin from "@/pages/admin";
+import ScrollToTop from "./utils/ScrollToTop";
 
 function Router() {
   return (
-    <Switch>
-      <Route path="/" component={Home} />
-      <Route path="/servicos" component={Services} />
-      <Route path="/agendamento" component={Booking} />
-      <Route path="/contato" component={Contact} />
-      <Route path="/admin" component={Admin} />
-      <Route component={NotFound} />
-    </Switch>
+    <>
+      <ScrollToTop />
+      <Switch>
+        <Route path="/" component={Home} />
+        <Route path="/servicos" component={Services} />
+        <Route path="/agendamento" component={Booking} />
+        <Route path="/contato" component={Contact} />
+        <Route path="/admin" component={Admin} />
+        <Route component={NotFound} />
+      </Switch>
+    </>
   );
 }
 
