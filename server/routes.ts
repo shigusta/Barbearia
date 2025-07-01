@@ -3,8 +3,9 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertAgendamentoSchema } from "@shared/schema";
 import { z } from "zod";
+import { isToday, set } from "date-fns";
 
-// Validation schemas
+// Schemas de Validação
 const createAgendamentoSchema = insertAgendamentoSchema.extend({
   nome_cliente: z.string().min(2, "Nome deve ter pelo menos 2 caracteres"),
   telefone_cliente: z
@@ -14,7 +15,12 @@ const createAgendamentoSchema = insertAgendamentoSchema.extend({
 });
 
 const horariosDisponiveisSchema = z.object({
-  data: z.string().transform((str) => new Date(str)),
+  // CORREÇÃO: Lê a data de forma segura, evitando problemas de fuso horário.
+  data: z.string().transform((str) => {
+    const dateOnly = str.split("T")[0];
+    const [year, month, day] = dateOnly.split("-").map(Number);
+    return new Date(year, month - 1, day);
+  }),
   servico_id: z.string().transform((str) => parseInt(str)),
   barbeiro_id: z
     .string()
@@ -96,7 +102,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         data,
         servico.duracao_minutos,
         agendamentosExistentes,
-        totalBarbeirosDisponiveis // Passa a nova variável
+        totalBarbeirosDisponiveis
       );
 
       res.json(horariosDisponiveis);
@@ -247,30 +253,40 @@ function generateAvailableTimeSlots(
   date: Date,
   durationMinutes: number,
   existingAppointments: any[],
-  totalBarbeiros: number // <- NOVO PARÂMETRO
+  totalBarbeiros: number
 ): { inicio: string; fim: string; display: string }[] {
   const slots: { inicio: string; fim: string; display: string }[] = [];
-  const workStart = 9; // 9:00 AM
-  const workEnd = 19; // 7:00 PM
-  const slotInterval = 15; // 15-minute intervals
+  const workStart = 9;
+  const workEnd = 19;
+  const slotInterval = 15;
 
-  // Skip Sundays
-  if (date.getDay() === 0) {
+  // Usa getUTCDay para ser consistente contra timezones
+  if (date.getUTCDay() === 0) {
     return slots;
   }
+  const endHour = date.getUTCDay() === 6 ? 17 : workEnd;
 
-  // Saturday has different hours
-  const endHour = date.getDay() === 6 ? 17 : workEnd; // Saturday until 5:00 PM
+  const agora = new Date();
 
   for (let hour = workStart; hour < endHour; hour++) {
     for (let minute = 0; minute < 60; minute += slotInterval) {
-      const slotStart = new Date(date);
-      slotStart.setHours(hour, minute, 0, 0);
+      // Checa se o dia é hoje e se a hora/minuto já passou
+      if (
+        isToday(date) &&
+        (hour < agora.getHours() ||
+          (hour === agora.getHours() && minute < agora.getMinutes()))
+      ) {
+        continue;
+      }
 
-      const slotEnd = new Date(slotStart);
-      slotEnd.setMinutes(slotEnd.getMinutes() + durationMinutes);
+      const slotStart = set(date, {
+        hours: hour,
+        minutes: minute,
+        seconds: 0,
+        milliseconds: 0,
+      });
+      const slotEnd = new Date(slotStart.getTime() + durationMinutes * 60000);
 
-      // Check if slot end time is within working hours
       if (
         slotEnd.getHours() > endHour ||
         (slotEnd.getHours() === endHour && slotEnd.getMinutes() > 0)
@@ -278,13 +294,10 @@ function generateAvailableTimeSlots(
         continue;
       }
 
-      // Conta quantos agendamentos estão acontecendo ao mesmo tempo neste slot
       const conflictingAppointments = existingAppointments.filter(
         (appointment) => {
           const existingStart = new Date(appointment.data_hora_inicio);
           const existingEnd = new Date(appointment.data_hora_fim);
-
-          // Verifica se há sobreposição de horários
           return (
             (slotStart >= existingStart && slotStart < existingEnd) ||
             (slotEnd > existingStart && slotEnd <= existingEnd) ||
@@ -293,24 +306,17 @@ function generateAvailableTimeSlots(
         }
       );
 
-      // Se o número de agendamentos conflitantes for MENOR que o total de barbeiros,
-      // significa que pelo menos uma "cadeira" está vaga.
       if (conflictingAppointments.length < totalBarbeiros) {
         slots.push({
           inicio: slotStart.toISOString(),
           fim: slotEnd.toISOString(),
-          display: `${slotStart
-            .getHours()
-            .toString()
-            .padStart(2, "0")}:${slotStart
-            .getMinutes()
+          display: `${hour.toString().padStart(2, "0")}:${minute
             .toString()
             .padStart(2, "0")}`,
         });
       }
     }
   }
-
   return slots;
 }
 
