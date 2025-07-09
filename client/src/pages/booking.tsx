@@ -26,12 +26,20 @@ export default function Booking() {
 
   // Check for pre-selected service from URL
   useEffect(() => {
-    const urlParams = new URLSearchParams(location.split('?')[1] || '');
-    const servicoId = urlParams.get('servico');
+    const urlParams = new URLSearchParams(location.split("?")[1] || "");
+    const servicoId = urlParams.get("servico");
     if (servicoId) {
-      setBookingData(prev => ({ ...prev, servico_id: parseInt(servicoId) }));
+      setBookingData((prev) => ({ ...prev, servico_id: parseInt(servicoId) }));
     }
   }, [location]);
+
+  useEffect(() => {
+    // Se o usuário voltou para o primeiro passo, limpa os dados antigos...
+    if (currentStep === 1 && Object.keys(bookingData).length > 1) {
+      // ...mas mantém o serviço que pode ter sido pré-selecionado pelo useEffect acima.
+      setBookingData((prev) => ({ servico_id: prev.servico_id }));
+    }
+  }, [currentStep]);
 
   const steps = [
     { number: 1, title: "Serviço", component: ServiceSelection },
@@ -42,7 +50,7 @@ export default function Booking() {
   ];
 
   const updateBookingData = (data: Partial<BookingData>) => {
-    setBookingData(prev => ({ ...prev, ...data }));
+    setBookingData((prev) => ({ ...prev, ...data }));
   };
 
   const nextStep = () => {
@@ -57,12 +65,17 @@ export default function Booking() {
     }
   };
 
+  const resetBooking = () => {
+    setBookingData({}); // Limpa os dados do agendamento
+    setCurrentStep(1); // Volta para o Passo 1 (Seleção de Serviço)
+  };
+
   const CurrentStepComponent = steps[currentStep - 1].component;
 
   return (
     <div className="min-h-screen">
       <Header />
-      
+
       <main className="pt-16">
         <section className="py-20 bg-black">
           <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -71,7 +84,8 @@ export default function Booking() {
                 Agendamento <span className="text-elite-gold">Online</span>
               </h1>
               <p className="text-xl text-gray-300">
-                Reserve seu horário em poucos cliques. Sistema inteligente que mostra apenas horários disponíveis.
+                Reserve seu horário em poucos cliques. Sistema inteligente que
+                mostra apenas horários disponíveis.
               </p>
             </div>
 
@@ -83,18 +97,22 @@ export default function Booking() {
                   {steps.map((step, index) => (
                     <div key={step.number} className="flex items-center">
                       <div className="flex items-center">
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
-                          currentStep >= step.number 
-                            ? 'bg-elite-gold text-black' 
-                            : 'bg-gray-600 text-gray-400'
-                        }`}>
+                        <div
+                          className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
+                            currentStep >= step.number
+                              ? "bg-elite-gold text-black"
+                              : "bg-gray-600 text-gray-400"
+                          }`}
+                        >
                           {step.number}
                         </div>
-                        <span className={`ml-2 font-semibold text-sm md:text-base ${
-                          currentStep >= step.number 
-                            ? 'text-elite-gold' 
-                            : 'text-gray-400'
-                        }`}>
+                        <span
+                          className={`ml-2 font-semibold text-sm md:text-base ${
+                            currentStep >= step.number
+                              ? "text-elite-gold"
+                              : "text-gray-400"
+                          }`}
+                        >
                           {step.title}
                         </span>
                       </div>
@@ -112,7 +130,7 @@ export default function Booking() {
                 updateBookingData={updateBookingData}
                 nextStep={nextStep}
                 prevStep={prevStep}
-                currentStep={currentStep}
+                {...(currentStep === 5 && { resetBooking: resetBooking })}
               />
             </div>
           </div>

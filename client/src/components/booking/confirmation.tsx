@@ -2,7 +2,15 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { ArrowLeft, CheckCircle, Calendar, Clock, User, Scissors, MapPin } from "lucide-react";
+import {
+  ArrowLeft,
+  CheckCircle,
+  Calendar,
+  Clock,
+  User,
+  Scissors,
+  MapPin,
+} from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency, formatDateTime, formatDuration } from "@/lib/utils";
 import { apiRequest } from "@/lib/queryClient";
@@ -12,9 +20,14 @@ import type { Servico, Barbeiro } from "@shared/schema";
 interface ConfirmationProps {
   bookingData: BookingData;
   prevStep: () => void;
+  resetBooking?: () => void; // Adicionada a nova prop opcional
 }
 
-export default function Confirmation({ bookingData, prevStep }: ConfirmationProps) {
+export default function Confirmation({
+  bookingData,
+  prevStep,
+  resetBooking,
+}: ConfirmationProps) {
   const [isBooked, setIsBooked] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -27,12 +40,16 @@ export default function Confirmation({ bookingData, prevStep }: ConfirmationProp
     queryKey: ["/api/barbeiros"],
   });
 
-  const selectedService = servicos?.find(s => s.id === bookingData.servico_id);
-  const selectedBarber = barbeiros?.find(b => b.id === bookingData.barbeiro_id);
+  const selectedService = servicos?.find(
+    (s) => s.id === bookingData.servico_id
+  );
+  const selectedBarber = barbeiros?.find(
+    (b) => b.id === bookingData.barbeiro_id
+  );
 
   const bookingMutation = useMutation({
     mutationFn: async (data: BookingData) => {
-      return await apiRequest('POST', '/api/agendar', {
+      return await apiRequest("POST", "/api/agendar", {
         nome_cliente: data.nome_cliente,
         telefone_cliente: data.telefone_cliente,
         email_cliente: data.email_cliente,
@@ -40,8 +57,8 @@ export default function Confirmation({ bookingData, prevStep }: ConfirmationProp
         barbeiro_id: data.barbeiro_id || barbeiros?.[0]?.id, // Default to first barber if none selected
         data_hora_inicio: data.data_hora_inicio?.toISOString(),
         data_hora_fim: data.data_hora_fim?.toISOString(),
-        observacoes: data.observacoes || '',
-        status: 'confirmado',
+        observacoes: data.observacoes || "",
+        status: "confirmado",
       });
     },
     onSuccess: async (response) => {
@@ -58,7 +75,9 @@ export default function Confirmation({ bookingData, prevStep }: ConfirmationProp
     onError: (error: any) => {
       toast({
         title: "Erro no Agendamento",
-        description: error.message || "Não foi possível realizar o agendamento. Tente novamente.",
+        description:
+          error.message ||
+          "Não foi possível realizar o agendamento. Tente novamente.",
         variant: "destructive",
         duration: 5000,
       });
@@ -69,7 +88,8 @@ export default function Confirmation({ bookingData, prevStep }: ConfirmationProp
     if (!bookingData.data_hora_inicio || !bookingData.data_hora_fim) {
       toast({
         title: "Dados Incompletos",
-        description: "Por favor, volte e complete todos os dados do agendamento.",
+        description:
+          "Por favor, volte e complete todos os dados do agendamento.",
         variant: "destructive",
       });
       return;
@@ -86,12 +106,15 @@ export default function Confirmation({ bookingData, prevStep }: ConfirmationProp
           Agendamento Confirmado!
         </h3>
         <p className="text-lg text-gray-300">
-          Seu agendamento foi realizado com sucesso. Você receberá uma confirmação por WhatsApp e email.
+          Seu agendamento foi realizado com sucesso. Você receberá uma
+          confirmação por WhatsApp e email.
         </p>
-        
+
         <Card className="elite-gray max-w-md mx-auto">
           <CardContent className="p-6">
-            <h4 className="font-semibold mb-4 text-elite-gold">Detalhes do Agendamento</h4>
+            <h4 className="font-semibold mb-4 text-elite-gold">
+              Detalhes do Agendamento
+            </h4>
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
                 <span className="text-gray-400">Serviço:</span>
@@ -103,7 +126,10 @@ export default function Confirmation({ bookingData, prevStep }: ConfirmationProp
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-400">Data/Hora:</span>
-                <span>{bookingData.data_hora_inicio && formatDateTime(bookingData.data_hora_inicio)}</span>
+                <span>
+                  {bookingData.data_hora_inicio &&
+                    formatDateTime(bookingData.data_hora_inicio)}
+                </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-400">Cliente:</span>
@@ -123,10 +149,10 @@ export default function Confirmation({ bookingData, prevStep }: ConfirmationProp
         </div>
 
         <Button
-          onClick={() => window.location.href = '/'}
+          onClick={resetBooking}
           className="bg-elite-gold hover:bg-yellow-500 text-black px-8 py-3 font-semibold"
         >
-          Voltar ao Início
+          Fazer Novo Agendamento
         </Button>
       </div>
     );
@@ -134,8 +160,10 @@ export default function Confirmation({ bookingData, prevStep }: ConfirmationProp
 
   return (
     <div className="space-y-6">
-      <h3 className="text-2xl font-display font-bold mb-6">Confirmação do Agendamento</h3>
-      
+      <h3 className="text-2xl font-display font-bold mb-6">
+        Confirmação do Agendamento
+      </h3>
+
       <div className="space-y-4">
         <Card className="elite-gray">
           <CardContent className="p-6">
@@ -150,11 +178,16 @@ export default function Confirmation({ bookingData, prevStep }: ConfirmationProp
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-gray-400">Duração:</span>
-                <span>{selectedService && formatDuration(selectedService.duracao_minutos)}</span>
+                <span>
+                  {selectedService &&
+                    formatDuration(selectedService.duracao_minutos)}
+                </span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-gray-400">Barbeiro:</span>
-                <span>{selectedBarber?.nome || "Qualquer barbeiro disponível"}</span>
+                <span>
+                  {selectedBarber?.nome || "Qualquer barbeiro disponível"}
+                </span>
               </div>
               <div className="flex justify-between items-center text-lg">
                 <span className="text-gray-400">Valor:</span>
@@ -176,19 +209,22 @@ export default function Confirmation({ bookingData, prevStep }: ConfirmationProp
               <div className="flex justify-between items-center">
                 <span className="text-gray-400">Data:</span>
                 <span className="font-semibold">
-                  {bookingData.data_hora_inicio && formatDateTime(bookingData.data_hora_inicio).split(' ')[0]}
+                  {bookingData.data_hora_inicio &&
+                    formatDateTime(bookingData.data_hora_inicio).split(" ")[0]}
                 </span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-gray-400">Horário de início:</span>
                 <span className="font-semibold">
-                  {bookingData.data_hora_inicio && formatDateTime(bookingData.data_hora_inicio).split(' ')[1]}
+                  {bookingData.data_hora_inicio &&
+                    formatDateTime(bookingData.data_hora_inicio).split(" ")[1]}
                 </span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-gray-400">Previsão de término:</span>
                 <span>
-                  {bookingData.data_hora_fim && formatDateTime(bookingData.data_hora_fim).split(' ')[1]}
+                  {bookingData.data_hora_fim &&
+                    formatDateTime(bookingData.data_hora_fim).split(" ")[1]}
                 </span>
               </div>
             </div>
@@ -204,7 +240,9 @@ export default function Confirmation({ bookingData, prevStep }: ConfirmationProp
             <div className="space-y-3">
               <div className="flex justify-between items-center">
                 <span className="text-gray-400">Nome:</span>
-                <span className="font-semibold">{bookingData.nome_cliente}</span>
+                <span className="font-semibold">
+                  {bookingData.nome_cliente}
+                </span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-gray-400">Telefone:</span>
@@ -247,8 +285,14 @@ export default function Confirmation({ bookingData, prevStep }: ConfirmationProp
         <h5 className="font-semibold text-yellow-400 mb-2">Importante:</h5>
         <ul className="text-sm text-gray-300 space-y-1">
           <li>• Chegue com 5 minutos de antecedência</li>
-          <li>• Em caso de atraso superior a 15 minutos, o horário poderá ser reagendado</li>
-          <li>• Para cancelamentos, entre em contato com até 2 horas de antecedência</li>
+          <li>
+            • Em caso de atraso superior a 15 minutos, o horário poderá ser
+            reagendado
+          </li>
+          <li>
+            • Para cancelamentos, entre em contato com até 2 horas de
+            antecedência
+          </li>
           <li>• Aceitamos dinheiro, PIX e cartão</li>
         </ul>
       </div>

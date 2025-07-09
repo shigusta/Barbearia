@@ -1,4 +1,12 @@
-import { pgTable, text, serial, integer, timestamp, decimal, boolean } from "drizzle-orm/pg-core";
+import {
+  pgTable,
+  text,
+  serial,
+  integer,
+  timestamp,
+  decimal,
+  boolean,
+} from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -8,6 +16,16 @@ export const users = pgTable("users", {
   username: text("username").notNull().unique(),
   password: text("password").notNull(),
 });
+
+export const horariosFuncionamento = pgTable("horarios_funcionamento", {
+  id: serial("id").primaryKey(),
+  dia_da_semana: integer("dia_da_semana").notNull(), // 0 para Domingo, 1 para Segunda, etc.
+  hora_inicio: text("hora_inicio").notNull(), // Formato "HH:mm"
+  hora_fim: text("hora_fim").notNull(), // Formato "HH:mm"
+  ativo: boolean("ativo").default(true),
+});
+
+export type HorarioFuncionamento = typeof horariosFuncionamento.$inferSelect;
 
 export const barbeiros = pgTable("barbeiros", {
   id: serial("id").primaryKey(),
@@ -29,8 +47,12 @@ export const agendamentos = pgTable("agendamentos", {
   nome_cliente: text("nome_cliente").notNull(),
   telefone_cliente: text("telefone_cliente").notNull(),
   email_cliente: text("email_cliente").notNull(),
-  servico_id: integer("servico_id").references(() => servicos.id).notNull(),
-  barbeiro_id: integer("barbeiro_id").references(() => barbeiros.id).notNull(),
+  servico_id: integer("servico_id")
+    .references(() => servicos.id)
+    .notNull(),
+  barbeiro_id: integer("barbeiro_id")
+    .references(() => barbeiros.id)
+    .notNull(),
   data_hora_inicio: timestamp("data_hora_inicio").notNull(),
   data_hora_fim: timestamp("data_hora_fim").notNull(),
   status: text("status").default("confirmado").notNull(),

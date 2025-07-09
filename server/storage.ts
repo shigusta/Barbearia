@@ -3,6 +3,7 @@ import {
   barbeiros,
   servicos,
   agendamentos,
+  horariosFuncionamento,
   type User,
   type InsertUser,
   type Barbeiro,
@@ -12,9 +13,10 @@ import {
   type Agendamento,
   type InsertAgendamento,
   type AgendamentoComRelacoes,
+  type HorarioFuncionamento,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, gte, lte, desc } from "drizzle-orm";
+import { eq, and, gte, lte, desc, lt, gt } from "drizzle-orm";
 
 export interface IStorage {
   // Users
@@ -24,7 +26,6 @@ export interface IStorage {
 
   // Barbeiros
   getBarbeiros(): Promise<Barbeiro[]>;
-  getBarbeirosAtivos(): Promise<Barbeiro[]>;
   getBarbeiroById(id: number): Promise<Barbeiro | undefined>;
   createBarbeiro(barbeiro: InsertBarbeiro): Promise<Barbeiro>;
 
@@ -43,6 +44,12 @@ export interface IStorage {
   createAgendamento(agendamento: InsertAgendamento): Promise<Agendamento>;
   updateAgendamentoStatus(id: number, status: string): Promise<void>;
   deleteAgendamento(id: number): Promise<void>;
+  getAgendamentosPorIntervalo(inicio: Date, fim: Date): Promise<Agendamento[]>;
+
+  // Horario Funcionamento
+  getHorarioDeFuncionamentoPorDia(
+    dia: number
+  ): Promise<HorarioFuncionamento | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -67,10 +74,6 @@ export class DatabaseStorage implements IStorage {
 
   // Barbeiros
   async getBarbeiros(): Promise<Barbeiro[]> {
-    return await db.select().from(barbeiros).where(eq(barbeiros.ativo, true));
-  }
-
-  async getBarbeirosAtivos(): Promise<Barbeiro[]> {
     return await db.select().from(barbeiros).where(eq(barbeiros.ativo, true));
   }
 
@@ -111,7 +114,34 @@ export class DatabaseStorage implements IStorage {
     return servico;
   }
 
+  // Horarios de Funcionamento
+  async getHorarioDeFuncionamentoPorDia(
+    diaDaSemana: number
+  ): Promise<HorarioFuncionamento | undefined> {
+    const [horario] = await db
+      .select()
+      .from(horariosFuncionamento)
+      .where(eq(horariosFuncionamento.dia_da_semana, diaDaSemana));
+
+    return horario || undefined;
+  }
+
   // Agendamentos
+  async getAgendamentosPorIntervalo(
+    inicio: Date,
+    fim: Date
+  ): Promise<Agendamento[]> {
+    return db
+      .select()
+      .from(agendamentos)
+      .where(
+        and(
+          lt(agendamentos.data_hora_inicio, fim),
+          gt(agendamentos.data_hora_fim, inicio)
+        )
+      );
+  }
+
   async getAgendamentos(): Promise<AgendamentoComRelacoes[]> {
     return await db
       .select()

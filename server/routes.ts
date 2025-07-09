@@ -1,9 +1,15 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertAgendamentoSchema } from "@shared/schema";
+import {
+  horariosFuncionamento,
+  insertAgendamentoSchema,
+  servicos as tabelaServicos,
+  barbeiros as tabelaBarbeiros,
+} from "@shared/schema";
 import { z } from "zod";
 import { isToday, set } from "date-fns";
+import { db } from "./db";
 
 // Schemas de Validação
 const createAgendamentoSchema = insertAgendamentoSchema.extend({
@@ -37,7 +43,6 @@ const contactFormSchema = z.object({
 });
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Seed initial data
   await seedInitialData();
 
   // Get all services
@@ -89,7 +94,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           barbeiro_id
         );
       } else {
-        const barbeirosAtivos = await storage.getBarbeirosAtivos();
+        const barbeirosAtivos = await storage.getBarbeiros();
         totalBarbeirosDisponiveis = barbeirosAtivos.length;
         agendamentosExistentes = await storage.getAgendamentosByDate(data);
       }
@@ -98,7 +103,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.json([]);
       }
 
-      const horariosDisponiveis = generateAvailableTimeSlots(
+      // MUDANÇA: Adicionado 'await' pois a função agora é assíncrona
+      const horariosDisponiveis = await generateAvailableTimeSlots(
         data,
         servico.duracao_minutos,
         agendamentosExistentes,
@@ -115,10 +121,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Create appointment
   app.post("/api/agendar", async (req, res) => {
     try {
-      console.log("Received booking data:", req.body);
-
-      // Transform dates to proper format before validation
-      const bookingData = {
+      // PASSO DE TRANSFORMAÇÃO ADICIONADO AQUI
+      const dataToValidate = {
         ...req.body,
         data_hora_inicio: req.body.data_hora_inicio
           ? new Date(req.body.data_hora_inicio)
@@ -128,42 +132,66 @@ export async function registerRoutes(app: Express): Promise<Server> {
           : undefined,
       };
 
-      const validation = insertAgendamentoSchema.safeParse(bookingData);
+      const validation = createAgendamentoSchema.safeParse(dataToValidate);
+
       if (!validation.success) {
-        console.log("Validation errors:", validation.error.errors);
         return res.status(400).json({
           message: "Dados inválidos",
           errors: validation.error.errors,
         });
       }
 
-      const agendamentoData = validation.data;
+      let agendamentoData = { ...validation.data };
 
-      // Check if the time slot is still available
-      const conflictingAppointments = await storage.getAgendamentosByDate(
-        agendamentoData.data_hora_inicio,
-        agendamentoData.barbeiro_id
-      );
-
-      const hasConflict = conflictingAppointments.some((existing) => {
-        const existingStart = new Date(existing.data_hora_inicio);
-        const existingEnd = new Date(existing.data_hora_fim);
-        const newStart = new Date(agendamentoData.data_hora_inicio);
-        const newEnd = new Date(agendamentoData.data_hora_fim);
-
-        return (
-          (newStart >= existingStart && newStart < existingEnd) ||
-          (newEnd > existingStart && newEnd <= existingEnd) ||
-          (newStart <= existingStart && newEnd >= existingEnd)
+      // --- NOVA LÓGICA DE VERIFICAÇÃO DE CONFLITO ---
+      const agendamentosConflitantes =
+        await storage.getAgendamentosPorIntervalo(
+          agendamentoData.data_hora_inicio,
+          agendamentoData.data_hora_fim
         );
-      });
 
-      if (hasConflict) {
-        return res.status(409).json({
-          message:
-            "Desculpe, este horário acabou de ser preenchido. Por favor, escolha outro horário.",
-        });
+      if (agendamentoData.barbeiro_id) {
+        // CENÁRIO 1: O cliente escolheu um barbeiro específico.
+        const temConflito = agendamentosConflitantes.some(
+          (ag) => ag.barbeiro_id === agendamentoData.barbeiro_id
+        );
+
+        if (temConflito) {
+          return res
+            .status(409)
+            .json({ message: "Este barbeiro já está ocupado neste horário." });
+        }
+      } else {
+        // CENÁRIO 2: O cliente escolheu "Qualquer Barbeiro".
+        const barbeirosAtivos = await storage.getBarbeiros();
+
+        // Se o número de agendamentos no horário for igual ou maior que o de barbeiros, o horário está cheio.
+        if (agendamentosConflitantes.length >= barbeirosAtivos.length) {
+          return res.status(409).json({
+            message:
+              "Desculpe, este horário acabou de ser preenchido. Por favor, escolha outro.",
+          });
+        }
+
+        // Lógica para encontrar um barbeiro que esteja livre
+        const idsBarbeirosOcupados = agendamentosConflitantes.map(
+          (ag) => ag.barbeiro_id
+        );
+        const barbeiroLivre = barbeirosAtivos.find(
+          (barbeiro) => !idsBarbeirosOcupados.includes(barbeiro.id)
+        );
+
+        if (!barbeiroLivre) {
+          // Apenas uma segurança, é improvável que chegue aqui.
+          return res.status(409).json({
+            message: "Não foi possível encontrar um barbeiro disponível.",
+          });
+        }
+
+        // Atribui o agendamento ao barbeiro livre que foi encontrado!
+        agendamentoData.barbeiro_id = barbeiroLivre.id;
       }
+      // --- FIM DA NOVA LÓGICA ---
 
       const agendamento = await storage.createAgendamento(agendamentoData);
       res.status(201).json({
@@ -172,7 +200,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error("Error creating appointment:", error);
-      res.status(500).json({ message: "Erro interno do servidor" });
+      res.status(500).json({ message: "Erro interno do servidor." });
     }
   });
 
@@ -231,7 +259,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      // In a real implementation, you would send an email or save to database
       console.log("Contact form submission:", validation.data);
 
       res.json({
@@ -248,48 +275,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
   return httpServer;
 }
 
-// Helper function to generate available time slots
-function generateAvailableTimeSlots(
+async function generateAvailableTimeSlots(
   date: Date,
   durationMinutes: number,
   existingAppointments: any[],
   totalBarbeiros: number
-): { inicio: string; fim: string; display: string }[] {
+): Promise<{ inicio: string; fim: string; display: string }[]> {
   const slots: { inicio: string; fim: string; display: string }[] = [];
-  const workStart = 9;
-  const workEnd = 19;
   const slotInterval = 15;
+  const diaDaSemana = date.getUTCDay(); // 0 = Domingo, 1 = Segunda, etc.
 
-  // Usa getUTCDay para ser consistente contra timezones
-  if (date.getUTCDay() === 0) {
-    return slots;
+  // --- NOVA LÓGICA: BUSCA HORÁRIOS DO BANCO ---
+  const horarioDoDia = await storage.getHorarioDeFuncionamentoPorDia(
+    diaDaSemana
+  );
+
+  // Se não houver horário definido para o dia ou se a barbearia estiver fechada (inativo)
+  if (!horarioDoDia || !horarioDoDia.ativo) {
+    return []; // Retorna uma lista vazia, pois a barbearia está fechada neste dia.
   }
-  const endHour = date.getUTCDay() === 6 ? 17 : workEnd;
+
+  // Pega os horários de início e fim do banco de dados e converte para números
+  const workStart = parseInt(horarioDoDia.hora_inicio.split(":")[0]);
+  const endHour = parseInt(horarioDoDia.hora_fim.split(":")[0]);
+  const endMinute = parseInt(horarioDoDia.hora_fim.split(":")[1]);
+  // --- FIM DA NOVA LÓGICA ---
 
   const agora = new Date();
 
   for (let hour = workStart; hour < endHour; hour++) {
     for (let minute = 0; minute < 60; minute += slotInterval) {
-      // Checa se o dia é hoje e se a hora/minuto já passou
-      if (
-        isToday(date) &&
-        (hour < agora.getHours() ||
-          (hour === agora.getHours() && minute < agora.getMinutes()))
-      ) {
-        continue;
-      }
-
       const slotStart = set(date, {
         hours: hour,
         minutes: minute,
         seconds: 0,
         milliseconds: 0,
       });
+
+      if (isToday(date) && slotStart.getTime() < agora.getTime()) {
+        continue;
+      }
+
       const slotEnd = new Date(slotStart.getTime() + durationMinutes * 60000);
 
+      // Ajuste para considerar os minutos do fim do expediente
       if (
         slotEnd.getHours() > endHour ||
-        (slotEnd.getHours() === endHour && slotEnd.getMinutes() > 0)
+        (slotEnd.getHours() === endHour && slotEnd.getMinutes() > endMinute)
       ) {
         continue;
       }
@@ -323,58 +355,95 @@ function generateAvailableTimeSlots(
 // Seed initial data
 async function seedInitialData() {
   try {
-    // Check if data already exists
-    const existingServices = await storage.getServicos();
-    if (existingServices.length > 0) {
-      return; // Data already seeded
+    // Checa se o primeiro barbeiro já existe. Se sim, assume que tudo já foi criado.
+    const [firstBarber] = await db.select().from(tabelaBarbeiros).limit(1);
+    if (firstBarber) {
+      console.log("Data already exists. Skipping seed.");
+      return; // Para a execução aqui se os dados já existem
     }
 
-    // Create barbers
-    const barbeiro1 = await storage.createBarbeiro({
-      nome: "João Silva",
-      ativo: true,
-    });
+    console.log("Seeding initial data...");
 
-    const barbeiro2 = await storage.createBarbeiro({
-      nome: "Pedro Santos",
-      ativo: true,
-    });
+    // Create barbers
+    await storage.createBarbeiro({ nome: "João Silva", ativo: true });
+    await storage.createBarbeiro({ nome: "Pedro Santos", ativo: true });
 
     // Create services
     await storage.createServico({
       nome: "Corte Tradicional",
-      descricao:
-        "Corte personalizado com técnicas clássicas e modernas, adaptado ao seu estilo e formato do rosto.",
+      descricao: "...",
       duracao_minutos: 45,
       preco: "45.00",
       ativo: true,
     });
-
     await storage.createServico({
       nome: "Barba Terapia",
-      descricao:
-        "Tratamento completo com aparação, modelagem e hidratação profunda usando produtos premium.",
+      descricao: "...",
       duracao_minutos: 30,
       preco: "35.00",
       ativo: true,
     });
-
     await storage.createServico({
       nome: "Combo Completo",
-      descricao:
-        "Corte + Barba + Sobrancelha. O pacote completo para um visual impecável e renovado.",
+      descricao: "...",
       duracao_minutos: 90,
       preco: "75.00",
       ativo: true,
     });
-
     await storage.createServico({
       nome: "Sobrancelha",
-      descricao: "Aparação e design profissional das sobrancelhas.",
+      descricao: "...",
       duracao_minutos: 15,
       preco: "20.00",
       ativo: true,
     });
+
+    // Create default operating hours
+    const horariosParaInserir = [
+      {
+        dia_da_semana: 0,
+        hora_inicio: "00:00",
+        hora_fim: "00:00",
+        ativo: false,
+      }, // Domingo
+      {
+        dia_da_semana: 1,
+        hora_inicio: "09:00",
+        hora_fim: "19:00",
+        ativo: true,
+      }, // Segunda
+      {
+        dia_da_semana: 2,
+        hora_inicio: "09:00",
+        hora_fim: "19:00",
+        ativo: true,
+      }, // Terça
+      {
+        dia_da_semana: 3,
+        hora_inicio: "09:00",
+        hora_fim: "19:00",
+        ativo: true,
+      }, // Quarta
+      {
+        dia_da_semana: 4,
+        hora_inicio: "09:00",
+        hora_fim: "19:00",
+        ativo: true,
+      }, // Quinta
+      {
+        dia_da_semana: 5,
+        hora_inicio: "09:00",
+        hora_fim: "19:00",
+        ativo: true,
+      }, // Sexta
+      {
+        dia_da_semana: 6,
+        hora_inicio: "09:00",
+        hora_fim: "17:00",
+        ativo: true,
+      }, // Sábado
+    ];
+    await db.insert(horariosFuncionamento).values(horariosParaInserir);
 
     console.log("Initial data seeded successfully");
   } catch (error) {
