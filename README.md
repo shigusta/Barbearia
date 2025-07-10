@@ -14,7 +14,7 @@ Este é um template profissional para barbearias que permite:
 ## 🚀 Acesso Rápido
 
 ### 🌐 Site Principal
-- **URL**: [Seu domínio aqui]
+- **URL**: 
 - **Páginas**: Início, Serviços, Agendamento, Contato
 
 ### 👨‍💼 Painel Administrativo
@@ -93,34 +93,6 @@ node scripts/personalizar.js config-cliente.json
 - [x] Animações suaves
 - [x] Validação em tempo real
 
-## 🎨 Personalização
-
-Para personalizar o sistema para cada cliente:
-
-1. **Coleta de dados**: Use os formulários em `/docs/`
-2. **Configuração**: Execute `scripts/personalizar.js`
-3. **Banco de dados**: Insira serviços e barbeiros
-4. **Teste**: Valide todas as funcionalidades
-
-Ver [documentação completa](docs/PERSONALIZACAO_CLIENTE.md) para detalhes.
-
-## 💰 Comercialização
-
-Este template pode ser vendido para barbearias locais:
-
-- **Pacote Básico**: R$ 497 (barbeiros autônomos)
-- **Pacote Profissional**: R$ 897 (barbearias estabelecidas)  
-- **Pacote Premium**: R$ 1.497 (redes de barbearias)
-
-Ver [guia de comercialização](docs/GUIA_COMERCIALIZACAO.md) para estratégias completas.
-
-## 📚 Documentação
-
-- 📖 **[Documentação Técnica](docs/DOCUMENTACAO_COMPLETA.md)** - Arquitetura e APIs
-- 💼 **[Guia Comercial](docs/GUIA_COMERCIALIZACAO.md)** - Como vender o template
-- 🎨 **[Personalização](docs/PERSONALIZACAO_CLIENTE.md)** - Customização para clientes
-- 🎯 **[Apresentação](docs/APRESENTACAO_COMERCIAL.md)** - Scripts de vendas
-
 ## 🐛 Solução de Problemas
 
 ### Problema no Agendamento
@@ -171,12 +143,6 @@ npm run dev
 - [ ] Pagamento online
 - [ ] Multi-localização
 - [ ] API pública
-
-## 📞 Suporte
-
-- **WhatsApp**: [Seu número]
-- **Email**: [Seu email]
-- **Horário**: Segunda a Sexta, 9h às 18h
 
 ---
 
