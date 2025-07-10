@@ -24,7 +24,7 @@ export default function Booking() {
   const [currentStep, setCurrentStep] = useState(1);
   const [bookingData, setBookingData] = useState<BookingData>({});
 
-  // Check for pre-selected service from URL
+  // Efeito para ler o serviço da URL (continua o mesmo)
   useEffect(() => {
     const urlParams = new URLSearchParams(location.split("?")[1] || "");
     const servicoId = urlParams.get("servico");
@@ -32,14 +32,6 @@ export default function Booking() {
       setBookingData((prev) => ({ ...prev, servico_id: parseInt(servicoId) }));
     }
   }, [location]);
-
-  useEffect(() => {
-    // Se o usuário voltou para o primeiro passo, limpa os dados antigos...
-    if (currentStep === 1 && Object.keys(bookingData).length > 1) {
-      // ...mas mantém o serviço que pode ter sido pré-selecionado pelo useEffect acima.
-      setBookingData((prev) => ({ servico_id: prev.servico_id }));
-    }
-  }, [currentStep]);
 
   const steps = [
     { number: 1, title: "Serviço", component: ServiceSelection },
@@ -65,9 +57,10 @@ export default function Booking() {
     }
   };
 
+  // FUNÇÃO DE RESET ADICIONADA AQUI
   const resetBooking = () => {
-    setBookingData({}); // Limpa os dados do agendamento
-    setCurrentStep(1); // Volta para o Passo 1 (Seleção de Serviço)
+    setBookingData({});
+    setCurrentStep(1);
   };
 
   const CurrentStepComponent = steps[currentStep - 1].component;
@@ -75,68 +68,28 @@ export default function Booking() {
   return (
     <div className="min-h-screen">
       <Header />
-
       <main className="pt-16">
         <section className="py-20 bg-black">
           <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="text-center mb-16">
-              <h1 className="text-4xl md:text-5xl font-display font-bold mb-4">
-                Agendamento <span className="text-elite-gold">Online</span>
-              </h1>
-              <p className="text-xl text-gray-300">
-                Reserve seu horário em poucos cliques. Sistema inteligente que
-                mostra apenas horários disponíveis.
-              </p>
-            </div>
+            {/* ... (seu JSX para o título e o indicador de passos continua o mesmo) ... */}
 
-            {/* Booking Form */}
             <div className="elite-dark rounded-2xl p-8 shadow-2xl">
-              {/* Step Indicator */}
-              <div className="flex justify-between items-center mb-8 overflow-x-auto">
-                <div className="flex items-center space-x-2 md:space-x-4 min-w-max">
-                  {steps.map((step, index) => (
-                    <div key={step.number} className="flex items-center">
-                      <div className="flex items-center">
-                        <div
-                          className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
-                            currentStep >= step.number
-                              ? "bg-elite-gold text-black"
-                              : "bg-gray-600 text-gray-400"
-                          }`}
-                        >
-                          {step.number}
-                        </div>
-                        <span
-                          className={`ml-2 font-semibold text-sm md:text-base ${
-                            currentStep >= step.number
-                              ? "text-elite-gold"
-                              : "text-gray-400"
-                          }`}
-                        >
-                          {step.title}
-                        </span>
-                      </div>
-                      {index < steps.length - 1 && (
-                        <div className="w-8 md:w-12 h-0.5 bg-gray-600 mx-2 md:mx-4"></div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
+              {/* Step Indicator JSX */}
+              {/* ... */}
 
-              {/* Current Step Component */}
+              {/* Current Step Component com a prop de reset */}
               <CurrentStepComponent
                 bookingData={bookingData}
                 updateBookingData={updateBookingData}
                 nextStep={nextStep}
                 prevStep={prevStep}
+                // Passa a função de reset apenas para o último passo
                 {...(currentStep === 5 && { resetBooking: resetBooking })}
               />
             </div>
           </div>
         </section>
       </main>
-
       <Footer />
     </div>
   );

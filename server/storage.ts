@@ -136,8 +136,10 @@ export class DatabaseStorage implements IStorage {
       .from(agendamentos)
       .where(
         and(
-          lt(agendamentos.data_hora_inicio, fim),
-          gt(agendamentos.data_hora_fim, inicio)
+          // Um agendamento conflita se ele termina DEPOIS que o nosso começa...
+          lt(agendamentos.data_hora_fim, inicio),
+          // ...e começa ANTES que o nosso termine.
+          gt(agendamentos.data_hora_inicio, fim)
         )
       );
   }

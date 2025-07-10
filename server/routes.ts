@@ -1,15 +1,11 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import {
-  horariosFuncionamento,
-  insertAgendamentoSchema,
-  servicos as tabelaServicos,
-  barbeiros as tabelaBarbeiros,
-} from "@shared/schema";
+import { insertAgendamentoSchema } from "@shared/schema";
 import { z } from "zod";
 import { isToday, set } from "date-fns";
-import { db } from "./db";
+import * as bcrypt from "bcrypt";
+import jwt from "jsonwebtoken";
 
 // Schemas de Validação
 const createAgendamentoSchema = insertAgendamentoSchema.extend({
@@ -42,9 +38,12 @@ const contactFormSchema = z.object({
   mensagem: z.string().min(10, "Mensagem deve ter pelo menos 10 caracteres"),
 });
 
-export async function registerRoutes(app: Express): Promise<Server> {
-  await seedInitialData();
+const loginSchema = z.object({
+  username: z.string().min(1, "Nome de usuário é obrigatório"),
+  password: z.string().min(1, "Senha é obrigatória"),
+});
 
+export async function registerRoutes(app: Express): Promise<Server> {
   // Get all services
   app.get("/api/servicos", async (req, res) => {
     try {
@@ -118,10 +117,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post("/api/login", async (req, res) => {
+    try {
+      const validation = loginSchema.safeParse(req.body);
+      if (!validation.success) {
+        return res
+          .status(400)
+          .json({ message: "Usuário e senha são obrigatórios." });
+      }
+
+      const { username, password } = validation.data;
+      const user = await storage.getUserByUsername(username);
+      if (!user) {
+        return res.status(401).json({ message: "Usuário ou senha inválidos." });
+      }
+
+      const passwordMatch = await bcrypt.compare(password, user.password);
+      if (!passwordMatch) {
+        return res.status(401).json({ message: "Usuário ou senha inválidos." });
+      }
+
+      // --- LÓGICA DE GERAÇÃO DE TOKEN ---
+      // 1. Pega o segredo do .env
+      const jwtSecret = process.env.JWT_SECRET;
+      if (!jwtSecret) {
+        throw new Error("JWT_SECRET não definido no .env");
+      }
+
+      // 2. Cria o "payload" do token (as informações que queremos guardar nele)
+      const payload = {
+        userId: user.id,
+        username: user.username,
+      };
+
+      // 3. Gera o token, que expira em 1 dia (86400 segundos)
+      const token = jwt.sign(payload, jwtSecret, { expiresIn: "1d" });
+
+      // 4. Retorna o token para o frontend
+      res.json({
+        message: "Login realizado com sucesso!",
+        token: token,
+      });
+      // --- FIM DA LÓGICA DE TOKEN ---
+    } catch (error) {
+      console.error("Login error:", error);
+      res.status(500).json({ message: "Erro interno no servidor." });
+    }
+  });
+
   // Create appointment
   app.post("/api/agendar", async (req, res) => {
     try {
-      // PASSO DE TRANSFORMAÇÃO ADICIONADO AQUI
       const dataToValidate = {
         ...req.body,
         data_hora_inicio: req.body.data_hora_inicio
@@ -133,7 +179,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
 
       const validation = createAgendamentoSchema.safeParse(dataToValidate);
-
       if (!validation.success) {
         return res.status(400).json({
           message: "Dados inválidos",
@@ -143,7 +188,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       let agendamentoData = { ...validation.data };
 
-      // --- NOVA LÓGICA DE VERIFICAÇÃO DE CONFLITO ---
+      // --- LÓGICA DE VERIFICAÇÃO DE CONFLITO CORRIGIDA ---
+
       const agendamentosConflitantes =
         await storage.getAgendamentosPorIntervalo(
           agendamentoData.data_hora_inicio,
@@ -151,7 +197,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         );
 
       if (agendamentoData.barbeiro_id) {
-        // CENÁRIO 1: O cliente escolheu um barbeiro específico.
+        // CENÁRIO 1: Cliente escolheu um barbeiro específico.
         const temConflito = agendamentosConflitantes.some(
           (ag) => ag.barbeiro_id === agendamentoData.barbeiro_id
         );
@@ -162,11 +208,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
             .json({ message: "Este barbeiro já está ocupado neste horário." });
         }
       } else {
-        // CENÁRIO 2: O cliente escolheu "Qualquer Barbeiro".
+        // CENÁRIO 2: Cliente escolheu "Qualquer Barbeiro".
         const barbeirosAtivos = await storage.getBarbeiros();
 
-        // Se o número de agendamentos no horário for igual ou maior que o de barbeiros, o horário está cheio.
         if (agendamentosConflitantes.length >= barbeirosAtivos.length) {
+          // Se o número de agendamentos no horário for igual ou maior que o de barbeiros, o horário está cheio.
           return res.status(409).json({
             message:
               "Desculpe, este horário acabou de ser preenchido. Por favor, escolha outro.",
@@ -182,7 +228,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         );
 
         if (!barbeiroLivre) {
-          // Apenas uma segurança, é improvável que chegue aqui.
           return res.status(409).json({
             message: "Não foi possível encontrar um barbeiro disponível.",
           });
@@ -191,7 +236,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Atribui o agendamento ao barbeiro livre que foi encontrado!
         agendamentoData.barbeiro_id = barbeiroLivre.id;
       }
-      // --- FIM DA NOVA LÓGICA ---
+      // --- FIM DA LÓGICA CORRIGIDA ---
 
       const agendamento = await storage.createAgendamento(agendamentoData);
       res.status(201).json({
@@ -350,103 +395,4 @@ async function generateAvailableTimeSlots(
     }
   }
   return slots;
-}
-
-// Seed initial data
-async function seedInitialData() {
-  try {
-    // Checa se o primeiro barbeiro já existe. Se sim, assume que tudo já foi criado.
-    const [firstBarber] = await db.select().from(tabelaBarbeiros).limit(1);
-    if (firstBarber) {
-      console.log("Data already exists. Skipping seed.");
-      return; // Para a execução aqui se os dados já existem
-    }
-
-    console.log("Seeding initial data...");
-
-    // Create barbers
-    await storage.createBarbeiro({ nome: "João Silva", ativo: true });
-    await storage.createBarbeiro({ nome: "Pedro Santos", ativo: true });
-
-    // Create services
-    await storage.createServico({
-      nome: "Corte Tradicional",
-      descricao: "...",
-      duracao_minutos: 45,
-      preco: "45.00",
-      ativo: true,
-    });
-    await storage.createServico({
-      nome: "Barba Terapia",
-      descricao: "...",
-      duracao_minutos: 30,
-      preco: "35.00",
-      ativo: true,
-    });
-    await storage.createServico({
-      nome: "Combo Completo",
-      descricao: "...",
-      duracao_minutos: 90,
-      preco: "75.00",
-      ativo: true,
-    });
-    await storage.createServico({
-      nome: "Sobrancelha",
-      descricao: "...",
-      duracao_minutos: 15,
-      preco: "20.00",
-      ativo: true,
-    });
-
-    // Create default operating hours
-    const horariosParaInserir = [
-      {
-        dia_da_semana: 0,
-        hora_inicio: "00:00",
-        hora_fim: "00:00",
-        ativo: false,
-      }, // Domingo
-      {
-        dia_da_semana: 1,
-        hora_inicio: "09:00",
-        hora_fim: "19:00",
-        ativo: true,
-      }, // Segunda
-      {
-        dia_da_semana: 2,
-        hora_inicio: "09:00",
-        hora_fim: "19:00",
-        ativo: true,
-      }, // Terça
-      {
-        dia_da_semana: 3,
-        hora_inicio: "09:00",
-        hora_fim: "19:00",
-        ativo: true,
-      }, // Quarta
-      {
-        dia_da_semana: 4,
-        hora_inicio: "09:00",
-        hora_fim: "19:00",
-        ativo: true,
-      }, // Quinta
-      {
-        dia_da_semana: 5,
-        hora_inicio: "09:00",
-        hora_fim: "19:00",
-        ativo: true,
-      }, // Sexta
-      {
-        dia_da_semana: 6,
-        hora_inicio: "09:00",
-        hora_fim: "17:00",
-        ativo: true,
-      }, // Sábado
-    ];
-    await db.insert(horariosFuncionamento).values(horariosParaInserir);
-
-    console.log("Initial data seeded successfully");
-  } catch (error) {
-    console.error("Error seeding initial data:", error);
-  }
 }

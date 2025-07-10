@@ -1,6 +1,13 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+import { storage } from "./storage";
+import { db } from "./db";
+import {
+  horariosFuncionamento,
+  barbeiros as tabelaBarbeiros,
+} from "../shared/schema";
+import * as bcrypt from "bcrypt";
 
 const app = express();
 app.use(express.json());
@@ -37,6 +44,8 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  await seedInitialData();
+
   const server = await registerRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
@@ -47,18 +56,11 @@ app.use((req, res, next) => {
     throw err;
   });
 
-  // importantly only setup vite in development and after
-  // setting up all the other routes so the catch-all route
-  // doesn't interfere with the other routes
   if (app.get("env") === "development") {
     await setupVite(app, server);
   } else {
     serveStatic(app);
   }
-
-  // ALWAYS serve the app on port 5000
-  // this serves both the API and the client.
-  // It is the only port that is not firewalled.
   const port = 5000;
   const host = "127.0.0.1";
   server.listen(
@@ -72,3 +74,111 @@ app.use((req, res, next) => {
     }
   );
 })();
+
+// Seed initial data
+async function seedInitialData() {
+  try {
+    const adminUser = await storage.getUserByUsername("admin");
+    if (adminUser) {
+      console.log("Data already exists. Skipping seed.");
+      return;
+    }
+
+    console.log("Seeding initial data for the first time...");
+
+    // Cria o usuário admin usando bcrypt
+    const saltRounds = 10;
+    const hashedPassword = await bcrypt.hash("admin123", saltRounds);
+    await storage.createUser({
+      username: "admin",
+      password: hashedPassword,
+    });
+    console.log("Admin user created successfully.");
+
+    // Cria os barbeiros
+    await storage.createBarbeiro({ nome: "João Silva", ativo: true });
+    await storage.createBarbeiro({ nome: "Pedro Santos", ativo: true });
+    console.log("Default barbers seeded successfully.");
+
+    // Create services
+    await storage.createServico({
+      nome: "Corte Tradicional",
+      descricao: "...",
+      duracao_minutos: 45,
+      preco: "45.00",
+      ativo: true,
+    });
+    await storage.createServico({
+      nome: "Barba Terapia",
+      descricao: "...",
+      duracao_minutos: 30,
+      preco: "35.00",
+      ativo: true,
+    });
+    await storage.createServico({
+      nome: "Combo Completo",
+      descricao: "...",
+      duracao_minutos: 90,
+      preco: "75.00",
+      ativo: true,
+    });
+    await storage.createServico({
+      nome: "Sobrancelha",
+      descricao: "...",
+      duracao_minutos: 15,
+      preco: "20.00",
+      ativo: true,
+    });
+
+    // Create default operating hours
+    const horariosParaInserir = [
+      {
+        dia_da_semana: 0,
+        hora_inicio: "00:00",
+        hora_fim: "00:00",
+        ativo: false,
+      },
+      {
+        dia_da_semana: 1,
+        hora_inicio: "09:00",
+        hora_fim: "19:00",
+        ativo: true,
+      },
+      {
+        dia_da_semana: 2,
+        hora_inicio: "09:00",
+        hora_fim: "19:00",
+        ativo: true,
+      },
+      {
+        dia_da_semana: 3,
+        hora_inicio: "09:00",
+        hora_fim: "19:00",
+        ativo: true,
+      },
+      {
+        dia_da_semana: 4,
+        hora_inicio: "09:00",
+        hora_fim: "19:00",
+        ativo: true,
+      },
+      {
+        dia_da_semana: 5,
+        hora_inicio: "09:00",
+        hora_fim: "19:00",
+        ativo: true,
+      },
+      {
+        dia_da_semana: 6,
+        hora_inicio: "09:00",
+        hora_fim: "17:00",
+        ativo: true,
+      },
+    ];
+    await db.insert(horariosFuncionamento).values(horariosParaInserir);
+
+    console.log("Default operating hours seeded successfully.");
+  } catch (error) {
+    console.error("Error seeding initial data:", error);
+  }
+}

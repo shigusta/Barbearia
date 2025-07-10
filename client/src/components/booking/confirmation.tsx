@@ -20,7 +20,7 @@ import type { Servico, Barbeiro } from "@shared/schema";
 interface ConfirmationProps {
   bookingData: BookingData;
   prevStep: () => void;
-  resetBooking?: () => void; // Adicionada a nova prop opcional
+  resetBooking?: () => void;
 }
 
 export default function Confirmation({
