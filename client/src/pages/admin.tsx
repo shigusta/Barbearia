@@ -1,10 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { 
+import {
   Calendar,
   Clock,
   User,
@@ -14,9 +14,8 @@ import {
   CheckCircle,
   XCircle,
   Trash2,
-  Eye,
   EyeOff,
-  Shield
+  Shield,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency, formatDateTime, formatDuration } from "@/lib/utils";
@@ -25,19 +24,32 @@ import type { AgendamentoComRelacoes } from "@shared/schema";
 
 export default function Admin() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [filter, setFilter] = useState<"todos" | "confirmado" | "cancelado" | "concluido">("todos");
+  const [filter, setFilter] = useState<
+    "todos" | "confirmado" | "cancelado" | "concluido"
+  >("todos");
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
+  // EFEITO PARA VERIFICAR O LOGIN NA INICIALIZAÇÃO
+  useEffect(() => {
+    const token = localStorage.getItem("authToken");
+    if (token) {
+      setIsAuthenticated(true);
+    }
+  }, []); // O array vazio [] garante que rode apenas uma vez, quando o componente carrega
+
   const { data: agendamentos, isLoading } = useQuery<AgendamentoComRelacoes[]>({
     queryKey: ["/api/agendamentos"],
-    enabled: isAuthenticated,
+    enabled: isAuthenticated, // Só busca os dados se isAuthenticated for true
   });
 
   const updateStatusMutation = useMutation({
     mutationFn: async ({ id, status }: { id: number; status: string }) => {
-      return await apiRequest('PATCH', `/api/agendamentos/${id}/status`, { status });
+      return await apiRequest("PATCH", `/api/agendamentos/${id}/status`, {
+        status,
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/agendamentos"] });
@@ -59,7 +71,7 @@ export default function Admin() {
 
   const deleteAgendamentoMutation = useMutation({
     mutationFn: async (id: number) => {
-      return await apiRequest('DELETE', `/api/agendamentos/${id}`);
+      return await apiRequest("DELETE", `/api/agendamentos/${id}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/agendamentos"] });
@@ -79,24 +91,45 @@ export default function Admin() {
     },
   });
 
-  const handleLogin = (e: React.FormEvent) => {
-    e.preventDefault();
-    // Simple password check - in production, use proper authentication
-    if (password === "admin123") {
-      setIsAuthenticated(true);
-      toast({
-        title: "Acesso Autorizado",
-        description: "Bem-vindo ao painel administrativo.",
-        duration: 3000,
-      });
-    } else {
+  const loginMutation = useMutation({
+    mutationFn: async () => {
+      return await apiRequest("POST", "/api/login", { username, password });
+    },
+    onSuccess: async (response) => {
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Usuário ou senha incorretos.");
+      }
+      const result = await response.json();
+      if (result.token) {
+        localStorage.setItem("authToken", result.token);
+        setIsAuthenticated(true);
+        toast({
+          title: "Acesso Autorizado",
+          description: "Bem-vindo ao painel administrativo.",
+        });
+      } else {
+        throw new Error(result.message || "Falha no login.");
+      }
+    },
+    onError: (error: any) => {
       toast({
         title: "Acesso Negado",
-        description: "Senha incorreta.",
+        description: error.message,
         variant: "destructive",
-        duration: 3000,
       });
-    }
+    },
+  });
+
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    loginMutation.mutate();
+  };
+
+  // FUNÇÃO DE LOGOUT CORRIGIDA
+  const handleLogout = () => {
+    localStorage.removeItem("authToken"); // Remove o token
+    setIsAuthenticated(false); // Atualiza o estado
   };
 
   const getStatusBadge = (status: string) => {
@@ -112,12 +145,12 @@ export default function Admin() {
     }
   };
 
-  const filteredAgendamentos = agendamentos?.filter(agendamento => {
+  const filteredAgendamentos = agendamentos?.filter((agendamento) => {
     if (filter === "todos") return true;
     return agendamento.status === filter;
   });
 
-  const todayAppointments = agendamentos?.filter(agendamento => {
+  const todayAppointments = agendamentos?.filter((agendamento) => {
     const today = new Date();
     const appointmentDate = new Date(agendamento.data_hora_inicio);
     return appointmentDate.toDateString() === today.toDateString();
@@ -126,8 +159,10 @@ export default function Admin() {
   const stats = {
     total: agendamentos?.length || 0,
     hoje: todayAppointments?.length || 0,
-    confirmados: agendamentos?.filter(a => a.status === "confirmado").length || 0,
-    concluidos: agendamentos?.filter(a => a.status === "concluido").length || 0,
+    confirmados:
+      agendamentos?.filter((a) => a.status === "confirmado").length || 0,
+    concluidos:
+      agendamentos?.filter((a) => a.status === "concluido").length || 0,
   };
 
   if (!isAuthenticated) {
@@ -145,6 +180,16 @@ export default function Admin() {
             <form onSubmit={handleLogin} className="space-y-4">
               <div>
                 <Input
+                  type="text"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  placeholder="Usuário"
+                  className="bg-black border-gray-600 text-white focus:border-elite-gold"
+                  required
+                />
+              </div>
+              <div>
+                <Input
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
@@ -156,8 +201,9 @@ export default function Admin() {
               <Button
                 type="submit"
                 className="w-full bg-elite-gold hover:bg-yellow-500 text-black font-semibold"
+                disabled={loginMutation.isPending}
               >
-                Entrar
+                {loginMutation.isPending ? "Entrando..." : "Entrar"}
               </Button>
             </form>
           </CardContent>
@@ -175,10 +221,12 @@ export default function Admin() {
             <h1 className="text-3xl font-display font-bold text-elite-gold">
               Painel Administrativo
             </h1>
-            <p className="text-gray-400">Gerencie os agendamentos da barbearia</p>
+            <p className="text-gray-400">
+              Gerencie os agendamentos da barbearia
+            </p>
           </div>
           <Button
-            onClick={() => setIsAuthenticated(false)}
+            onClick={handleLogout} // <-- MUDANÇA IMPORTANTE AQUI
             variant="outline"
             className="border-gray-600 text-gray-300 hover:bg-gray-600"
           >
@@ -194,43 +242,51 @@ export default function Admin() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-gray-400">Total</p>
-                  <p className="text-2xl font-bold text-elite-gold">{stats.total}</p>
+                  <p className="text-2xl font-bold text-elite-gold">
+                    {stats.total}
+                  </p>
                 </div>
                 <Calendar className="h-8 w-8 text-elite-gold" />
               </div>
             </CardContent>
           </Card>
-          
+
           <Card className="elite-gray">
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-gray-400">Hoje</p>
-                  <p className="text-2xl font-bold text-blue-400">{stats.hoje}</p>
+                  <p className="text-2xl font-bold text-blue-400">
+                    {stats.hoje}
+                  </p>
                 </div>
                 <Clock className="h-8 w-8 text-blue-400" />
               </div>
             </CardContent>
           </Card>
-          
+
           <Card className="elite-gray">
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-gray-400">Confirmados</p>
-                  <p className="text-2xl font-bold text-green-400">{stats.confirmados}</p>
+                  <p className="text-2xl font-bold text-green-400">
+                    {stats.confirmados}
+                  </p>
                 </div>
                 <CheckCircle className="h-8 w-8 text-green-400" />
               </div>
             </CardContent>
           </Card>
-          
+
           <Card className="elite-gray">
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-gray-400">Concluídos</p>
-                  <p className="text-2xl font-bold text-purple-400">{stats.concluidos}</p>
+                  <p className="text-2xl font-bold text-purple-400">
+                    {stats.concluidos}
+                  </p>
                 </div>
                 <Scissors className="h-8 w-8 text-purple-400" />
               </div>
@@ -266,28 +322,42 @@ export default function Admin() {
         <Card className="elite-gray">
           <CardHeader>
             <CardTitle className="text-elite-gold">
-              Agendamentos {filter !== "todos" && `- ${filter.charAt(0).toUpperCase() + filter.slice(1)}`}
+              Agendamentos{" "}
+              {filter !== "todos" &&
+                `- ${filter.charAt(0).toUpperCase() + filter.slice(1)}`}
             </CardTitle>
           </CardHeader>
           <CardContent>
             {isLoading ? (
               <div className="space-y-4">
                 {Array.from({ length: 5 }).map((_, i) => (
-                  <div key={i} className="h-20 bg-gray-700 rounded animate-pulse"></div>
+                  <div
+                    key={i}
+                    className="h-20 bg-gray-700 rounded animate-pulse"
+                  ></div>
                 ))}
               </div>
             ) : filteredAgendamentos && filteredAgendamentos.length > 0 ? (
               <div className="space-y-4">
                 {filteredAgendamentos
-                  .sort((a, b) => new Date(b.data_hora_inicio).getTime() - new Date(a.data_hora_inicio).getTime())
+                  .sort(
+                    (a, b) =>
+                      new Date(b.data_hora_inicio).getTime() -
+                      new Date(a.data_hora_inicio).getTime()
+                  )
                   .map((agendamento) => (
-                    <Card key={agendamento.id} className="bg-black border-gray-700">
+                    <Card
+                      key={agendamento.id}
+                      className="bg-black border-gray-700"
+                    >
                       <CardContent className="p-4">
                         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                           {/* Main Info */}
                           <div className="flex-1 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                             <div>
-                              <p className="text-sm text-gray-400 mb-1">Cliente</p>
+                              <p className="text-sm text-gray-400 mb-1">
+                                Cliente
+                              </p>
                               <p className="font-semibold flex items-center">
                                 <User className="mr-2 h-4 w-4 text-elite-gold" />
                                 {agendamento.nome_cliente}
@@ -301,29 +371,43 @@ export default function Admin() {
                                 {agendamento.email_cliente}
                               </p>
                             </div>
-                            
+
                             <div>
-                              <p className="text-sm text-gray-400 mb-1">Serviço</p>
-                              <p className="font-semibold">{agendamento.servico.nome}</p>
+                              <p className="text-sm text-gray-400 mb-1">
+                                Serviço
+                              </p>
+                              <p className="font-semibold">
+                                {agendamento.servico.nome}
+                              </p>
                               <p className="text-sm text-gray-400">
-                                {formatDuration(agendamento.servico.duracao_minutos)} - {formatCurrency(agendamento.servico.preco)}
+                                {formatDuration(
+                                  agendamento.servico.duracao_minutos
+                                )}{" "}
+                                - {formatCurrency(agendamento.servico.preco)}
                               </p>
                             </div>
-                            
+
                             <div>
-                              <p className="text-sm text-gray-400 mb-1">Barbeiro</p>
-                              <p className="font-semibold">{agendamento.barbeiro.nome}</p>
+                              <p className="text-sm text-gray-400 mb-1">
+                                Barbeiro
+                              </p>
+                              <p className="font-semibold">
+                                {agendamento.barbeiro.nome}
+                              </p>
                               <p className="text-sm text-gray-400">
                                 {formatDateTime(agendamento.data_hora_inicio)}
                               </p>
                             </div>
-                            
+
                             <div>
-                              <p className="text-sm text-gray-400 mb-1">Status</p>
+                              <p className="text-sm text-gray-400 mb-1">
+                                Status
+                              </p>
                               {getStatusBadge(agendamento.status)}
                               {agendamento.observacoes && (
                                 <p className="text-xs text-gray-400 mt-2">
-                                  <strong>Obs:</strong> {agendamento.observacoes}
+                                  <strong>Obs:</strong>{" "}
+                                  {agendamento.observacoes}
                                 </p>
                               )}
                             </div>
@@ -334,7 +418,12 @@ export default function Admin() {
                             {agendamento.status === "confirmado" && (
                               <Button
                                 size="sm"
-                                onClick={() => updateStatusMutation.mutate({ id: agendamento.id, status: "concluido" })}
+                                onClick={() =>
+                                  updateStatusMutation.mutate({
+                                    id: agendamento.id,
+                                    status: "concluido",
+                                  })
+                                }
                                 className="bg-green-600 hover:bg-green-700 text-white"
                                 disabled={updateStatusMutation.isPending}
                               >
@@ -342,23 +431,30 @@ export default function Admin() {
                                 Concluir
                               </Button>
                             )}
-                            
+
                             {agendamento.status === "confirmado" && (
                               <Button
                                 size="sm"
                                 variant="destructive"
-                                onClick={() => updateStatusMutation.mutate({ id: agendamento.id, status: "cancelado" })}
+                                onClick={() =>
+                                  updateStatusMutation.mutate({
+                                    id: agendamento.id,
+                                    status: "cancelado",
+                                  })
+                                }
                                 disabled={updateStatusMutation.isPending}
                               >
                                 <XCircle className="mr-1 h-3 w-3" />
                                 Cancelar
                               </Button>
                             )}
-                            
+
                             <Button
                               size="sm"
                               variant="outline"
-                              onClick={() => deleteAgendamentoMutation.mutate(agendamento.id)}
+                              onClick={() =>
+                                deleteAgendamentoMutation.mutate(agendamento.id)
+                              }
                               className="border-gray-600 text-gray-300 hover:bg-red-600 hover:border-red-600"
                               disabled={deleteAgendamentoMutation.isPending}
                             >
@@ -378,10 +474,9 @@ export default function Admin() {
                   Nenhum agendamento encontrado
                 </h3>
                 <p className="text-gray-500">
-                  {filter === "todos" 
+                  {filter === "todos"
                     ? "Ainda não há agendamentos no sistema."
-                    : `Não há agendamentos com status "${filter}".`
-                  }
+                    : `Não há agendamentos com status "${filter}".`}
                 </p>
               </div>
             )}

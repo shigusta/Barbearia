@@ -98,6 +98,17 @@ export const insertAgendamentoSchema = createInsertSchema(agendamentos).omit({
   criado_em: true,
 });
 
+export const bloqueiosAgenda = pgTable("bloqueios_agenda", {
+  id: serial("id").primaryKey(),
+  data_inicio: timestamp("data_inicio", { withTimezone: true }).notNull(),
+  data_fim: timestamp("data_fim", { withTimezone: true }).notNull(),
+  motivo: text("motivo"), // Ex: "Almoço", "Férias", "Feriado"
+
+  // Se o barbeiro_id for nulo, o bloqueio se aplica a toda a barbearia.
+  // Se tiver um ID, o bloqueio é apenas para aquele barbeiro.
+  barbeiro_id: integer("barbeiro_id").references(() => barbeiros.id),
+});
+
 // Types
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
@@ -107,6 +118,8 @@ export type Servico = typeof servicos.$inferSelect;
 export type InsertServico = z.infer<typeof insertServicoSchema>;
 export type Agendamento = typeof agendamentos.$inferSelect;
 export type InsertAgendamento = z.infer<typeof insertAgendamentoSchema>;
+export type BloqueioAgenda = typeof bloqueiosAgenda.$inferSelect;
+export type InsertBloqueioAgenda = typeof bloqueiosAgenda.$inferInsert;
 
 // Extended types with relationships
 export type AgendamentoComRelacoes = Agendamento & {

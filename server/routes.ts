@@ -6,6 +6,7 @@ import { z } from "zod";
 import { isToday, set } from "date-fns";
 import * as bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
+import { authenticateToken } from "./auth";
 
 // Schemas de Validação
 const createAgendamentoSchema = insertAgendamentoSchema.extend({
@@ -250,7 +251,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get all appointments (admin)
-  app.get("/api/agendamentos", async (req, res) => {
+  app.get("/api/agendamentos", authenticateToken, async (req, res) => {
     try {
       const agendamentos = await storage.getAgendamentos();
       res.json(agendamentos);
@@ -261,28 +262,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update appointment status (admin)
-  app.patch("/api/agendamentos/:id/status", async (req, res) => {
-    try {
-      const id = parseInt(req.params.id);
-      const { status } = req.body;
+  app.patch(
+    "/api/agendamentos/:id/status",
+    authenticateToken,
+    async (req, res) => {
+      try {
+        const id = parseInt(req.params.id);
+        const { status } = req.body;
 
-      if (
-        !status ||
-        !["confirmado", "cancelado", "concluido"].includes(status)
-      ) {
-        return res.status(400).json({ message: "Status inválido" });
+        if (
+          !status ||
+          !["confirmado", "cancelado", "concluido"].includes(status)
+        ) {
+          return res.status(400).json({ message: "Status inválido" });
+        }
+
+        await storage.updateAgendamentoStatus(id, status);
+        res.json({ message: "Status atualizado com sucesso" });
+      } catch (error) {
+        console.error("Error updating appointment status:", error);
+        res.status(500).json({ message: "Erro interno do servidor" });
       }
-
-      await storage.updateAgendamentoStatus(id, status);
-      res.json({ message: "Status atualizado com sucesso" });
-    } catch (error) {
-      console.error("Error updating appointment status:", error);
-      res.status(500).json({ message: "Erro interno do servidor" });
     }
-  });
+  );
 
   // Delete appointment (admin)
-  app.delete("/api/agendamentos/:id", async (req, res) => {
+  app.delete("/api/agendamentos/:id", authenticateToken, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       await storage.deleteAgendamento(id);
