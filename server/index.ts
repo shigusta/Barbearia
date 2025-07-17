@@ -1,4 +1,5 @@
 import express, { type Request, Response, NextFunction } from "express";
+import http from "http";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { storage } from "./storage";
@@ -44,35 +45,47 @@ app.use((req, res, next) => {
 });
 
 (async () => {
-  await seedInitialData();
+  // 2. Adicionado: Bloco try...catch para capturar erros de inicialização
+  try {
+    await seedInitialData();
 
-  const server = await registerRoutes(app);
+    // 3. Alterado: A função registerRoutes agora apenas configura as rotas
+    await registerRoutes(app);
 
-  app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
-    const status = err.status || err.statusCode || 500;
-    const message = err.message || "Internal Server Error";
+    // 4. Adicionado: Criação explícita do servidor HTTP
+    const server = http.createServer(app);
 
-    res.status(status).json({ message });
-    throw err;
-  });
+    app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+      const status = err.status || err.statusCode || 500;
+      const message = err.message || "Internal Server Error";
 
-  if (app.get("env") === "development") {
-    await setupVite(app, server);
-  } else {
-    serveStatic(app);
-  }
-  const port = 5000;
-  const host = "127.0.0.1";
-  server.listen(
-    {
-      port,
-      host: host,
-      //  reusePort: true, //
-    },
-    () => {
-      log(`serving on port ${port}`);
+      res.status(status).json({ message });
+      // Não relance o erro aqui, pois pode causar um crash. O log já é suficiente.
+      console.error("UNHANDLED ERROR:", err);
+    });
+
+    if (app.get("env") === "development") {
+      await setupVite(app, server);
+    } else {
+      serveStatic(app);
     }
-  );
+    const port = 5000;
+    const host = "127.0.0.1";
+
+    // 5. Alterado: server.listen() agora é chamado no servidor HTTP real
+    server.listen(
+      {
+        port,
+        host: host,
+      },
+      () => {
+        log(`✅ servidor a funcionar na porta ${port}`);
+      }
+    );
+  } catch (error) {
+    console.error("❌ Falha ao iniciar o servidor:", error);
+    process.exit(1); // Encerra o processo se a inicialização falhar
+  }
 })();
 
 // Seed initial data

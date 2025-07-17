@@ -1,24 +1,51 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertAgendamentoSchema } from "@shared/schema";
+import {
+  insertAgendamentoSchema,
+  type AgendamentoComRelacoes,
+  type BloqueioAgenda,
+  type InsertAgendamento,
+} from "@shared/schema";
 import { z } from "zod";
 import { isToday, set } from "date-fns";
 import * as bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { authenticateToken } from "./auth";
+import {
+  enviarWhatsappConfirmacao,
+  enviarWhatsappCancelamento,
+} from "./notifications.ts";
 
-// Schemas de Validação
-const createAgendamentoSchema = insertAgendamentoSchema.extend({
-  nome_cliente: z.string().min(2, "Nome deve ter pelo menos 2 caracteres"),
-  telefone_cliente: z
+const createAgendamentoSchema = insertAgendamentoSchema
+  .extend({
+    nome_cliente: z.string().min(2, "Nome deve ter pelo menos 2 caracteres"),
+    telefone_cliente: z
+      .string()
+      .min(10, "Telefone deve ter pelo menos 10 dígitos"),
+    email_cliente: z.string().email("Email inválido"),
+  })
+  .merge(
+    z.object({
+      barbeiro_id: z.number().optional().nullable(),
+    })
+  );
+
+const createBloqueioSchema = z.object({
+  data: z
     .string()
-    .min(10, "Telefone deve ter pelo menos 10 dígitos"),
-  email_cliente: z.string().email("Email inválido"),
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "Formato de data inválido (YYYY-MM-DD)"),
+  hora_inicio: z
+    .string()
+    .regex(/^\d{2}:\d{2}$/, "Formato de hora inválido (HH:MM)"),
+  hora_fim: z
+    .string()
+    .regex(/^\d{2}:\d{2}$/, "Formato de hora inválido (HH:MM)"),
+  motivo: z.string().optional(),
+  barbeiro_id: z.number().nullable().optional(), // Pode ser nulo para "Todos"
 });
 
 const horariosDisponiveisSchema = z.object({
-  // CORREÇÃO: Lê a data de forma segura, evitando problemas de fuso horário.
   data: z.string().transform((str) => {
     const dateOnly = str.split("T")[0];
     const [year, month, day] = dateOnly.split("-").map(Number);
@@ -45,7 +72,6 @@ const loginSchema = z.object({
 });
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Get all services
   app.get("/api/servicos", async (req, res) => {
     try {
       const servicos = await storage.getServicos();
@@ -56,7 +82,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get all barbers
   app.get("/api/barbeiros", async (req, res) => {
     try {
       const barbeiros = await storage.getBarbeiros();
@@ -67,7 +92,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get available time slots
   app.get("/api/horarios-disponiveis", async (req, res) => {
     try {
       const validation = horariosDisponiveisSchema.safeParse(req.query);
@@ -85,30 +109,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Serviço não encontrado" });
       }
 
-      let agendamentosExistentes = [];
-      let totalBarbeirosDisponiveis = 1;
+      const barbeirosAtivos = barbeiro_id
+        ? [await storage.getBarbeiroById(barbeiro_id)].filter(Boolean)
+        : await storage.getBarbeiros();
 
-      if (barbeiro_id) {
-        agendamentosExistentes = await storage.getAgendamentosByDate(
-          data,
-          barbeiro_id
-        );
-      } else {
-        const barbeirosAtivos = await storage.getBarbeiros();
-        totalBarbeirosDisponiveis = barbeirosAtivos.length;
-        agendamentosExistentes = await storage.getAgendamentosByDate(data);
-      }
-
+      const totalBarbeirosDisponiveis = barbeirosAtivos.length;
       if (totalBarbeirosDisponiveis === 0) {
         return res.json([]);
       }
 
-      // MUDANÇA: Adicionado 'await' pois a função agora é assíncrona
+      const inicioDoDia = new Date(data);
+      inicioDoDia.setUTCHours(0, 0, 0, 0);
+
+      const fimDoDia = new Date(data);
+      fimDoDia.setUTCHours(23, 59, 59, 999);
+
+      const agendamentosDoDia = await storage.getAgendamentosByDate(
+        data,
+        barbeiro_id
+      );
+      const bloqueiosDoDia = await storage.getBloqueiosPorPeriodo(
+        inicioDoDia,
+        fimDoDia
+      );
+
       const horariosDisponiveis = await generateAvailableTimeSlots(
         data,
         servico.duracao_minutos,
-        agendamentosExistentes,
-        totalBarbeirosDisponiveis
+        agendamentosDoDia,
+        bloqueiosDoDia,
+        totalBarbeirosDisponiveis,
+        barbeiro_id
       );
 
       res.json(horariosDisponiveis);
@@ -138,37 +169,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ message: "Usuário ou senha inválidos." });
       }
 
-      // --- LÓGICA DE GERAÇÃO DE TOKEN ---
-      // 1. Pega o segredo do .env
       const jwtSecret = process.env.JWT_SECRET;
       if (!jwtSecret) {
         throw new Error("JWT_SECRET não definido no .env");
       }
 
-      // 2. Cria o "payload" do token (as informações que queremos guardar nele)
-      const payload = {
-        userId: user.id,
-        username: user.username,
-      };
-
-      // 3. Gera o token, que expira em 1 dia (86400 segundos)
+      const payload = { userId: user.id, username: user.username };
       const token = jwt.sign(payload, jwtSecret, { expiresIn: "1d" });
 
-      // 4. Retorna o token para o frontend
       res.json({
         message: "Login realizado com sucesso!",
         token: token,
       });
-      // --- FIM DA LÓGICA DE TOKEN ---
     } catch (error) {
       console.error("Login error:", error);
       res.status(500).json({ message: "Erro interno no servidor." });
     }
   });
 
-  // Create appointment
   app.post("/api/agendar", async (req, res) => {
     try {
+      console.log("-----------------------------------------");
+      console.log("Recebido pedido em /api/agendar:", req.body);
+
       const dataToValidate = {
         ...req.body,
         data_hora_inicio: req.body.data_hora_inicio
@@ -188,58 +211,80 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       let agendamentoData = { ...validation.data };
+      console.log(
+        `Dados após validação. Barbeiro ID: ${agendamentoData.barbeiro_id}`
+      );
 
-      // --- LÓGICA DE VERIFICAÇÃO DE CONFLITO CORRIGIDA ---
-
-      const agendamentosConflitantes =
-        await storage.getAgendamentosPorIntervalo(
-          agendamentoData.data_hora_inicio,
-          agendamentoData.data_hora_fim
+      const APPOINTMENT_LIMIT = 1; // O limite é 1 agendamento futuro
+      const futureAppointmentsCount =
+        await storage.countFutureAppointmentsByPhone(
+          agendamentoData.telefone_cliente
         );
+
+      if (futureAppointmentsCount >= APPOINTMENT_LIMIT) {
+        return res.status(409).json({
+          // 409 significa "Conflito"
+          message:
+            "Limite de agendamentos atingido. Você já possui um agendamento futuro e só poderá marcar outro após a sua conclusão.",
+        });
+      }
 
       if (agendamentoData.barbeiro_id) {
-        // CENÁRIO 1: Cliente escolheu um barbeiro específico.
-        const temConflito = agendamentosConflitantes.some(
-          (ag) => ag.barbeiro_id === agendamentoData.barbeiro_id
+        console.log(
+          `Cenário 1: Barbeiro específico selecionado (ID: ${agendamentoData.barbeiro_id})`
         );
-
-        if (temConflito) {
+        const conflitos = await storage.getAgendamentosPorIntervalo(
+          agendamentoData.data_hora_inicio,
+          agendamentoData.data_hora_fim,
+          agendamentoData.barbeiro_id
+        );
+        if (conflitos.length > 0) {
           return res
             .status(409)
             .json({ message: "Este barbeiro já está ocupado neste horário." });
         }
       } else {
-        // CENÁRIO 2: Cliente escolheu "Qualquer Barbeiro".
+        console.log(
+          `Cenário 1: Barbeiro específico selecionado (ID: ${agendamentoData.barbeiro_id})`
+        );
         const barbeirosAtivos = await storage.getBarbeiros();
-
-        if (agendamentosConflitantes.length >= barbeirosAtivos.length) {
-          // Se o número de agendamentos no horário for igual ou maior que o de barbeiros, o horário está cheio.
+        const conflitosGerais = await storage.getAgendamentosPorIntervalo(
+          agendamentoData.data_hora_inicio,
+          agendamentoData.data_hora_fim
+        );
+        if (conflitosGerais.length >= barbeirosAtivos.length) {
           return res.status(409).json({
             message:
-              "Desculpe, este horário acabou de ser preenchido. Por favor, escolha outro.",
+              "Desculpe, todos os barbeiros estão ocupados neste horário.",
           });
         }
-
-        // Lógica para encontrar um barbeiro que esteja livre
-        const idsBarbeirosOcupados = agendamentosConflitantes.map(
-          (ag) => ag.barbeiro_id
+        const idsBarbeirosOcupados = new Set(
+          conflitosGerais.map((ag) => ag.barbeiro_id)
         );
         const barbeiroLivre = barbeirosAtivos.find(
-          (barbeiro) => !idsBarbeirosOcupados.includes(barbeiro.id)
+          (barbeiro) => !idsBarbeirosOcupados.has(barbeiro.id)
         );
-
         if (!barbeiroLivre) {
           return res.status(409).json({
-            message: "Não foi possível encontrar um barbeiro disponível.",
+            message:
+              "Não foi possível encontrar um barbeiro disponível neste horário.",
           });
         }
-
-        // Atribui o agendamento ao barbeiro livre que foi encontrado!
         agendamentoData.barbeiro_id = barbeiroLivre.id;
       }
-      // --- FIM DA LÓGICA CORRIGIDA ---
 
-      const agendamento = await storage.createAgendamento(agendamentoData);
+      const agendamento = await storage.createAgendamento(
+        agendamentoData as InsertAgendamento
+      );
+
+      // ✅ CHAMA A NOTIFICAÇÃO DE CONFIRMAÇÃO
+      const agendamentoCompleto = await storage.getAgendamentoById(
+        agendamento.id
+      );
+      if (agendamentoCompleto) {
+        enviarWhatsappConfirmacao(agendamentoCompleto);
+      }
+
       res.status(201).json({
         message: "Agendamento realizado com sucesso!",
         agendamento,
@@ -250,7 +295,64 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get all appointments (admin)
+  // Listar todos os bloqueios
+  app.get("/api/bloqueios", authenticateToken, async (req, res) => {
+    try {
+      const bloqueios = await storage.getBloqueios();
+      res.json(bloqueios);
+    } catch (error) {
+      console.error("Error fetching blocks:", error);
+      res.status(500).json({ message: "Erro interno do servidor" });
+    }
+  });
+
+  // Criar um novo bloqueio
+  app.post("/api/bloqueios", authenticateToken, async (req, res) => {
+    try {
+      const validation = createBloqueioSchema.safeParse(req.body);
+      if (!validation.success) {
+        return res.status(400).json({
+          message: "Dados de bloqueio inválidos",
+          errors: validation.error.flatten(),
+        });
+      }
+
+      const { data, hora_inicio, hora_fim, motivo, barbeiro_id } =
+        validation.data;
+
+      // Combina data e hora para criar objetos Date completos
+      const data_inicio = new Date(`${data}T${hora_inicio}:00`);
+      const data_fim = new Date(`${data}T${hora_fim}:00`);
+
+      const novoBloqueio = await storage.createBloqueio({
+        data_inicio,
+        data_fim,
+        motivo,
+        barbeiro_id: barbeiro_id === null ? undefined : barbeiro_id, // Converte null para undefined para o DB
+      });
+
+      res.status(201).json(novoBloqueio);
+    } catch (error) {
+      console.error("Error creating block:", error);
+      res.status(500).json({ message: "Erro interno do servidor" });
+    }
+  });
+
+  // Apagar um bloqueio
+  app.delete("/api/bloqueios/:id", authenticateToken, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "ID inválido." });
+      }
+      await storage.deleteBloqueio(id);
+      res.status(200).json({ message: "Bloqueio removido com sucesso." });
+    } catch (error) {
+      console.error("Error deleting block:", error);
+      res.status(500).json({ message: "Erro interno do servidor" });
+    }
+  });
+
   app.get("/api/agendamentos", authenticateToken, async (req, res) => {
     try {
       const agendamentos = await storage.getAgendamentos();
@@ -261,7 +363,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Update appointment status (admin)
   app.patch(
     "/api/agendamentos/:id/status",
     authenticateToken,
@@ -269,12 +370,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       try {
         const id = parseInt(req.params.id);
         const { status } = req.body;
-
         if (
           !status ||
           !["confirmado", "cancelado", "concluido"].includes(status)
         ) {
           return res.status(400).json({ message: "Status inválido" });
+        }
+
+        // ✅ CHAMA A NOTIFICAÇÃO DE CANCELAMENTO
+        if (status === "cancelado") {
+          const agendamentoParaCancelar = await storage.getAgendamentoById(id);
+          if (agendamentoParaCancelar) {
+            enviarWhatsappCancelamento(agendamentoParaCancelar);
+          }
         }
 
         await storage.updateAgendamentoStatus(id, status);
@@ -286,7 +394,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   );
 
-  // Delete appointment (admin)
   app.delete("/api/agendamentos/:id", authenticateToken, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
@@ -298,19 +405,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Contact form submission
   app.post("/api/contato", async (req, res) => {
     try {
       const validation = contactFormSchema.safeParse(req.body);
       if (!validation.success) {
+        console.error("❌ Erro de validação Zod:", validation.error.errors);
         return res.status(400).json({
           message: "Dados inválidos",
           errors: validation.error.errors,
         });
       }
-
       console.log("Contact form submission:", validation.data);
-
       res.json({
         message:
           "Mensagem enviada com sucesso! Entraremos em contato em breve.",
@@ -328,29 +433,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
 async function generateAvailableTimeSlots(
   date: Date,
   durationMinutes: number,
-  existingAppointments: any[],
-  totalBarbeiros: number
+  existingAppointments: AgendamentoComRelacoes[],
+  existingBlocks: BloqueioAgenda[],
+  totalBarbeiros: number,
+  barbeiroId?: number
 ): Promise<{ inicio: string; fim: string; display: string }[]> {
   const slots: { inicio: string; fim: string; display: string }[] = [];
   const slotInterval = 15;
-  const diaDaSemana = date.getUTCDay(); // 0 = Domingo, 1 = Segunda, etc.
+  const diaDaSemana = date.getUTCDay();
 
-  // --- NOVA LÓGICA: BUSCA HORÁRIOS DO BANCO ---
   const horarioDoDia = await storage.getHorarioDeFuncionamentoPorDia(
     diaDaSemana
   );
-
-  // Se não houver horário definido para o dia ou se a barbearia estiver fechada (inativo)
   if (!horarioDoDia || !horarioDoDia.ativo) {
-    return []; // Retorna uma lista vazia, pois a barbearia está fechada neste dia.
+    return [];
   }
 
-  // Pega os horários de início e fim do banco de dados e converte para números
   const workStart = parseInt(horarioDoDia.hora_inicio.split(":")[0]);
   const endHour = parseInt(horarioDoDia.hora_fim.split(":")[0]);
   const endMinute = parseInt(horarioDoDia.hora_fim.split(":")[1]);
-  // --- FIM DA NOVA LÓGICA ---
-
   const agora = new Date();
 
   for (let hour = workStart; hour < endHour; hour++) {
@@ -368,7 +469,6 @@ async function generateAvailableTimeSlots(
 
       const slotEnd = new Date(slotStart.getTime() + durationMinutes * 60000);
 
-      // Ajuste para considerar os minutos do fim do expediente
       if (
         slotEnd.getHours() > endHour ||
         (slotEnd.getHours() === endHour && slotEnd.getMinutes() > endMinute)
@@ -376,15 +476,35 @@ async function generateAvailableTimeSlots(
         continue;
       }
 
+      let isBlocked = false;
+      for (const block of existingBlocks) {
+        const blockStart = new Date(block.data_inicio);
+        const blockEnd = new Date(block.data_fim);
+
+        if (
+          (slotStart >= blockStart && slotStart < blockEnd) ||
+          (slotEnd > blockStart && slotEnd <= blockEnd) ||
+          (slotStart <= blockStart && slotEnd >= blockEnd)
+        ) {
+          if (
+            block.barbeiro_id === null ||
+            (barbeiroId && block.barbeiro_id === barbeiroId)
+          ) {
+            isBlocked = true;
+            break;
+          }
+        }
+      }
+      if (isBlocked) {
+        continue;
+      }
+
       const conflictingAppointments = existingAppointments.filter(
         (appointment) => {
           const existingStart = new Date(appointment.data_hora_inicio);
           const existingEnd = new Date(appointment.data_hora_fim);
-          return (
-            (slotStart >= existingStart && slotStart < existingEnd) ||
-            (slotEnd > existingStart && slotEnd <= existingEnd) ||
-            (slotStart <= existingStart && slotEnd >= existingEnd)
-          );
+          // A mesma lógica de conflito: (StartA < EndB) AND (EndA > StartB)
+          return slotStart < existingEnd && slotEnd > existingStart;
         }
       );
 

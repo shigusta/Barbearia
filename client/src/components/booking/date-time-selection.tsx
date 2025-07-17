@@ -21,41 +21,47 @@ interface DateTimeSelectionProps {
   prevStep: () => void;
 }
 
-export default function DateTimeSelection({ 
-  bookingData, 
-  updateBookingData, 
+export default function DateTimeSelection({
+  bookingData,
+  updateBookingData,
   nextStep,
-  prevStep 
+  prevStep,
 }: DateTimeSelectionProps) {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
-  const [selectedTimeSlot, setSelectedTimeSlot] = useState<TimeSlot | undefined>(undefined);
+  const [selectedTimeSlot, setSelectedTimeSlot] = useState<
+    TimeSlot | undefined
+  >(undefined);
 
-  const { data: timeSlots, isLoading: isLoadingSlots, refetch } = useQuery<TimeSlot[]>({
+  const {
+    data: timeSlots,
+    isLoading: isLoadingSlots,
+    refetch,
+  } = useQuery<TimeSlot[]>({
     queryKey: [
       "/api/horarios-disponiveis",
-      selectedDate?.toISOString().split('T')[0],
+      selectedDate?.toISOString().split("T")[0],
       bookingData.servico_id,
-      bookingData.barbeiro_id
+      bookingData.barbeiro_id,
     ],
     enabled: !!(selectedDate && bookingData.servico_id),
     queryFn: async () => {
       if (!selectedDate || !bookingData.servico_id) return [];
-      
+
       const params = new URLSearchParams({
-        data: selectedDate.toISOString().split('T')[0],
+        data: selectedDate.toISOString().split("T")[0],
         servico_id: bookingData.servico_id.toString(),
       });
-      
+
       if (bookingData.barbeiro_id) {
-        params.append('barbeiro_id', bookingData.barbeiro_id.toString());
+        params.append("barbeiro_id", bookingData.barbeiro_id.toString());
       }
 
       const response = await fetch(`/api/horarios-disponiveis?${params}`);
       if (!response.ok) {
-        throw new Error('Failed to fetch time slots');
+        throw new Error("Failed to fetch time slots");
       }
       return response.json();
-    }
+    },
   });
 
   useEffect(() => {
@@ -93,8 +99,10 @@ export default function DateTimeSelection({
 
   return (
     <div className="space-y-6">
-      <h3 className="text-2xl font-display font-bold mb-6">Escolha Data e Horário</h3>
-      
+      <h3 className="text-2xl font-display font-bold mb-6">
+        Escolha Data e Horário
+      </h3>
+
       <div className="grid lg:grid-cols-2 gap-8">
         {/* Calendar */}
         <div>
@@ -126,12 +134,13 @@ export default function DateTimeSelection({
         {/* Time Slots */}
         <div>
           <h4 className="text-lg font-semibold mb-4">
-            {selectedDate 
-              ? `Horários - ${format(selectedDate, 'dd \'de\' MMMM', { locale: ptBR })}`
-              : 'Selecione uma data primeiro'
-            }
+            {selectedDate
+              ? `Horários - ${format(selectedDate, "dd 'de' MMMM", {
+                  locale: ptBR,
+                })}`
+              : "Selecione uma data primeiro"}
           </h4>
-          
+
           {!selectedDate ? (
             <div className="text-center py-8 text-gray-400">
               <Clock className="mx-auto h-12 w-12 mb-4 opacity-50" />
@@ -140,7 +149,10 @@ export default function DateTimeSelection({
           ) : isLoadingSlots ? (
             <div className="grid grid-cols-3 gap-2">
               {Array.from({ length: 9 }).map((_, i) => (
-                <div key={i} className="h-10 bg-gray-600 rounded animate-pulse"></div>
+                <div
+                  key={i}
+                  className="h-10 bg-gray-600 rounded animate-pulse"
+                ></div>
               ))}
             </div>
           ) : timeSlots && timeSlots.length > 0 ? (
@@ -148,7 +160,11 @@ export default function DateTimeSelection({
               {timeSlots.map((slot) => (
                 <Button
                   key={slot.inicio}
-                  variant={selectedTimeSlot?.inicio === slot.inicio ? "default" : "outline"}
+                  variant={
+                    selectedTimeSlot?.inicio === slot.inicio
+                      ? "default"
+                      : "outline"
+                  }
                   size="sm"
                   onClick={() => handleTimeSelect(slot)}
                   className={
@@ -176,9 +192,20 @@ export default function DateTimeSelection({
           <CardContent className="p-4">
             <h4 className="font-semibold mb-2">Resumo do Agendamento</h4>
             <div className="space-y-1 text-sm text-gray-300">
-              <p><strong>Data:</strong> {format(selectedDate!, 'dd/MM/yyyy')}</p>
-              <p><strong>Horário:</strong> {selectedTimeSlot.display}</p>
-              <p><strong>Duração:</strong> até {format(new Date(selectedTimeSlot.fim), 'HH:mm')}</p>
+              <p>
+                <strong>Data:</strong>{" "}
+                {selectedDate &&
+                  format(selectedDate, "dd/MM/yyyy", { locale: ptBR })}
+              </p>
+              <p>
+                <strong>Horário:</strong> {selectedTimeSlot.display}
+              </p>
+              <p>
+                <strong>Duração:</strong> até{" "}
+                {format(new Date(selectedTimeSlot.fim), "HH:mm", {
+                  locale: ptBR,
+                })}
+              </p>
             </div>
           </CardContent>
         </Card>

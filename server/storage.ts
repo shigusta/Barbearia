@@ -4,6 +4,7 @@ import {
   servicos,
   agendamentos,
   horariosFuncionamento,
+  bloqueiosAgenda,
   type User,
   type InsertUser,
   type Barbeiro,
@@ -14,9 +15,11 @@ import {
   type InsertAgendamento,
   type AgendamentoComRelacoes,
   type HorarioFuncionamento,
+  type BloqueioAgenda,
+  type InsertBloqueioAgenda,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, gte, lte, desc, lt, gt } from "drizzle-orm";
+import { eq, and, gte, lte, desc, lt, gt, count } from "drizzle-orm";
 
 export interface IStorage {
   // Users
@@ -50,6 +53,15 @@ export interface IStorage {
   getHorarioDeFuncionamentoPorDia(
     dia: number
   ): Promise<HorarioFuncionamento | undefined>;
+
+  // Bloqueios
+  createBloqueio(bloqueio: InsertBloqueioAgenda): Promise<BloqueioAgenda>;
+  getBloqueiosPorPeriodo(inicio: Date, fim: Date): Promise<BloqueioAgenda[]>;
+  getBloqueios(): Promise<BloqueioAgenda[]>; //
+  deleteBloqueio(id: number): Promise<void>;
+
+  //Bloqueio Varios Agendamentos
+  countFutureAppointmentsByPhone(telefone: string): Promise<number>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -127,23 +139,6 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Agendamentos
-  async getAgendamentosPorIntervalo(
-    inicio: Date,
-    fim: Date
-  ): Promise<Agendamento[]> {
-    return db
-      .select()
-      .from(agendamentos)
-      .where(
-        and(
-          // Um agendamento conflita se ele termina DEPOIS que o nosso começa...
-          lt(agendamentos.data_hora_fim, inicio),
-          // ...e começa ANTES que o nosso termine.
-          gt(agendamentos.data_hora_inicio, fim)
-        )
-      );
-  }
-
   async getAgendamentos(): Promise<AgendamentoComRelacoes[]> {
     return await db
       .select()
@@ -179,15 +174,35 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
+  async getAgendamentosPorIntervalo(
+    inicio: Date,
+    fim: Date,
+    barbeiroId?: number
+  ): Promise<Agendamento[]> {
+    const conditions = [
+      lt(agendamentos.data_hora_inicio, fim),
+      gt(agendamentos.data_hora_fim, inicio),
+    ];
+
+    if (barbeiroId) {
+      conditions.push(eq(agendamentos.barbeiro_id, barbeiroId));
+    }
+
+    return db
+      .select()
+      .from(agendamentos)
+      .where(and(...conditions));
+  }
+
   async getAgendamentosByDate(
     data: Date,
     barbeiroId?: number
   ): Promise<AgendamentoComRelacoes[]> {
     const startOfDay = new Date(data);
-    startOfDay.setHours(0, 0, 0, 0);
+    startOfDay.setUTCHours(0, 0, 0, 0);
 
     const endOfDay = new Date(data);
-    endOfDay.setHours(23, 59, 59, 999);
+    endOfDay.setUTCHours(23, 59, 59, 999);
 
     const whereConditions = barbeiroId
       ? and(
@@ -235,6 +250,61 @@ export class DatabaseStorage implements IStorage {
 
   async deleteAgendamento(id: number): Promise<void> {
     await db.delete(agendamentos).where(eq(agendamentos.id, id));
+  }
+
+  // Bloqueios de Agenda
+  async createBloqueio(
+    bloqueio: InsertBloqueioAgenda
+  ): Promise<BloqueioAgenda> {
+    const [novoBloqueio] = await db
+      .insert(bloqueiosAgenda)
+      .values(bloqueio)
+      .returning();
+    return novoBloqueio;
+  }
+
+  async getBloqueiosPorPeriodo(
+    inicio: Date,
+    fim: Date
+  ): Promise<BloqueioAgenda[]> {
+    return await db
+      .select()
+      .from(bloqueiosAgenda)
+      .where(
+        and(
+          lt(bloqueiosAgenda.data_inicio, fim),
+          gt(bloqueiosAgenda.data_fim, inicio)
+        )
+      );
+  }
+
+  // ✅ NOVO MÉTODO: Listar todos os bloqueios
+  async getBloqueios(): Promise<BloqueioAgenda[]> {
+    return await db
+      .select()
+      .from(bloqueiosAgenda)
+      .orderBy(desc(bloqueiosAgenda.data_inicio));
+  }
+
+  // ✅ NOVO MÉTODO: Apagar um bloqueio por ID
+  async deleteBloqueio(id: number): Promise<void> {
+    await db.delete(bloqueiosAgenda).where(eq(bloqueiosAgenda.id, id));
+  }
+
+  // Bloqueio Varios Agendamentos
+  async countFutureAppointmentsByPhone(telefone: string): Promise<number> {
+    const result = await db
+      .select({ value: count() })
+      .from(agendamentos)
+      .where(
+        and(
+          eq(agendamentos.telefone_cliente, telefone),
+          eq(agendamentos.status, "confirmado"),
+          gt(agendamentos.data_hora_inicio, new Date()) //Apenas agendamento no futuro
+        )
+      );
+
+    return result[0].value;
   }
 }
 

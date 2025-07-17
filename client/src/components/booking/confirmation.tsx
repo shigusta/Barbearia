@@ -48,18 +48,27 @@ export default function Confirmation({
   );
 
   const bookingMutation = useMutation({
+    // ✅ CORREÇÃO PRINCIPAL: Construir o payload de forma inteligente
     mutationFn: async (data: BookingData) => {
-      return await apiRequest("POST", "/api/agendar", {
+      // 1. Cria um objeto base com os dados garantidos.
+      const payload: any = {
         nome_cliente: data.nome_cliente,
         telefone_cliente: data.telefone_cliente,
         email_cliente: data.email_cliente,
         servico_id: data.servico_id,
-        barbeiro_id: data.barbeiro_id || barbeiros?.[0]?.id, // Default to first barber if none selected
         data_hora_inicio: data.data_hora_inicio?.toISOString(),
         data_hora_fim: data.data_hora_fim?.toISOString(),
         observacoes: data.observacoes || "",
         status: "confirmado",
-      });
+      };
+
+      // 2. Adiciona o barbeiro_id APENAS se ele tiver sido selecionado.
+      if (data.barbeiro_id) {
+        payload.barbeiro_id = data.barbeiro_id;
+      }
+
+      // 3. Envia o payload limpo para a API.
+      return await apiRequest("POST", "/api/agendar", payload);
     },
     onSuccess: async (response) => {
       const result = await response.json();

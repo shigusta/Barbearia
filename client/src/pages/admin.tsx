@@ -5,6 +5,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Calendar,
   Clock,
   User,
@@ -16,15 +23,227 @@ import {
   Trash2,
   EyeOff,
   Shield,
+  Lock,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { formatCurrency, formatDateTime, formatDuration } from "@/lib/utils";
-import { apiRequest } from "@/lib/queryClient";
-import type { AgendamentoComRelacoes } from "@shared/schema";
+import {
+  formatCurrency,
+  formatDateTime,
+  formatDuration,
+  formatDate,
+} from "@/lib/utils";
+import { apiRequest, getQueryFn } from "@/lib/queryClient";
+import type {
+  AgendamentoComRelacoes,
+  Barbeiro,
+  BloqueioAgenda,
+} from "@shared/schema";
 
+// --- Componente para Gerir Bloqueios ---
+function ScheduleBlockManager() {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  const { data: barbeiros } = useQuery<Barbeiro[]>({
+    queryKey: ["/api/barbeiros"],
+  });
+  const { data: bloqueios, isLoading } = useQuery<BloqueioAgenda[]>({
+    queryKey: ["/api/bloqueios"],
+    queryFn: getQueryFn({ on401: "returnNull" }),
+    enabled: !!localStorage.getItem("authToken"),
+  });
+
+  const [data, setData] = useState("");
+  const [hora_inicio, setHoraInicio] = useState("");
+  const [hora_fim, setHoraFim] = useState("");
+  const [motivo, setMotivo] = useState("");
+  const [barbeiro_id, setBarbeiroId] = useState<string>("null");
+
+  const createBlockMutation = useMutation({
+    mutationFn: async () => {
+      if (!data || !hora_inicio || !hora_fim) {
+        throw new Error("Data, hora de início e hora de fim são obrigatórios.");
+      }
+      const parsedBarbeiroId =
+        barbeiro_id === "null" ? null : parseInt(barbeiro_id, 10);
+      return apiRequest("POST", "/api/bloqueios", {
+        data,
+        hora_inicio,
+        hora_fim,
+        motivo,
+        barbeiro_id: parsedBarbeiroId,
+      });
+    },
+    onSuccess: () => {
+      toast({ title: "Sucesso", description: "Bloqueio de agenda criado." });
+      queryClient.invalidateQueries({ queryKey: ["/api/bloqueios"] });
+      setData("");
+      setHoraInicio("");
+      setHoraFim("");
+      setMotivo("");
+      setBarbeiroId("null");
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Erro",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteBlockMutation = useMutation({
+    mutationFn: (id: number) => apiRequest("DELETE", `/api/bloqueios/${id}`),
+    onSuccess: () => {
+      toast({ title: "Sucesso", description: "Bloqueio removido." });
+      queryClient.invalidateQueries({ queryKey: ["/api/bloqueios"] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Erro",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  return (
+    <Card className="elite-gray mt-8">
+      <CardHeader>
+        <CardTitle className="text-elite-gold flex items-center">
+          <Lock className="mr-2" />
+          Gerir Bloqueios na Agenda
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="grid md:grid-cols-2 gap-8">
+        <div className="space-y-4">
+          <h4 className="font-semibold text-lg">Criar Novo Bloqueio</h4>
+          <div>
+            <label className="text-sm text-gray-300 block mb-1">Data</label>
+            <Input
+              type="date"
+              value={data}
+              onChange={(e) => setData(e.target.value)}
+              className="bg-black border-gray-600"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="text-sm text-gray-300 block mb-1">
+                Hora Início
+              </label>
+              <Input
+                type="time"
+                value={hora_inicio}
+                onChange={(e) => setHoraInicio(e.target.value)}
+                className="bg-black border-gray-600"
+              />
+            </div>
+            <div>
+              <label className="text-sm text-gray-300 block mb-1">
+                Hora Fim
+              </label>
+              <Input
+                type="time"
+                value={hora_fim}
+                onChange={(e) => setHoraFim(e.target.value)}
+                className="bg-black border-gray-600"
+              />
+            </div>
+          </div>
+          <div>
+            <label className="text-sm text-gray-300 block mb-1">Barbeiro</label>
+            <Select onValueChange={setBarbeiroId} value={barbeiro_id}>
+              <SelectTrigger className="bg-black border-gray-600">
+                <SelectValue placeholder="Todos os barbeiros" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="null">Todos os barbeiros</SelectItem>
+                {barbeiros?.map((b) => (
+                  <SelectItem key={b.id} value={String(b.id)}>
+                    {b.nome}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <label className="text-sm text-gray-300 block mb-1">
+              Motivo (Opcional)
+            </label>
+            <Input
+              type="text"
+              value={motivo}
+              onChange={(e) => setMotivo(e.target.value)}
+              placeholder="Ex: Almoço, Reunião, Feriado"
+              className="bg-black border-gray-600"
+            />
+          </div>
+          <Button
+            onClick={() => createBlockMutation.mutate()}
+            disabled={createBlockMutation.isPending}
+            className="w-full bg-elite-gold hover:bg-yellow-500 text-black font-semibold"
+          >
+            {createBlockMutation.isPending ? "A criar..." : "Criar Bloqueio"}
+          </Button>
+        </div>
+        <div className="space-y-3">
+          <h4 className="font-semibold text-lg">Bloqueios Agendados</h4>
+          <div className="max-h-80 overflow-y-auto pr-2">
+            {isLoading && (
+              <p className="text-gray-400">A carregar bloqueios...</p>
+            )}
+            {bloqueios && bloqueios.length === 0 && (
+              <p className="text-gray-400 text-center py-4">
+                Nenhum bloqueio encontrado.
+              </p>
+            )}
+            {bloqueios?.map((bloqueio) => (
+              <Card key={bloqueio.id} className="bg-black border-gray-700 mb-2">
+                <CardContent className="p-3 flex justify-between items-center">
+                  <div>
+                    <p className="font-semibold">
+                      {bloqueio.motivo || "Pausa"}
+                    </p>
+                    <p className="text-sm text-gray-400">
+                      {formatDate(new Date(bloqueio.data_inicio))}
+                    </p>
+                    <p className="text-sm text-gray-400">
+                      {
+                        formatDateTime(new Date(bloqueio.data_inicio)).split(
+                          " "
+                        )[1]
+                      }{" "}
+                      -{" "}
+                      {
+                        formatDateTime(new Date(bloqueio.data_fim)).split(
+                          " "
+                        )[1]
+                      }
+                    </p>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => deleteBlockMutation.mutate(bloqueio.id)}
+                    disabled={deleteBlockMutation.isPending}
+                  >
+                    <Trash2 className="h-4 w-4 text-red-500" />
+                  </Button>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+// --- Componente Admin Principal (COMPLETO) ---
 export default function Admin() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [username, setUsername] = useState("");
+  const [username, setUsername] = useState("admin");
   const [password, setPassword] = useState("");
   const [filter, setFilter] = useState<
     "todos" | "confirmado" | "cancelado" | "concluido"
@@ -32,69 +251,50 @@ export default function Admin() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // EFEITO PARA VERIFICAR O LOGIN NA INICIALIZAÇÃO
   useEffect(() => {
     const token = localStorage.getItem("authToken");
-    if (token) {
-      setIsAuthenticated(true);
-    }
-  }, []); // O array vazio [] garante que rode apenas uma vez, quando o componente carrega
+    if (token) setIsAuthenticated(true);
+  }, []);
 
   const { data: agendamentos, isLoading } = useQuery<AgendamentoComRelacoes[]>({
     queryKey: ["/api/agendamentos"],
-    enabled: isAuthenticated, // Só busca os dados se isAuthenticated for true
+    enabled: isAuthenticated,
   });
 
   const updateStatusMutation = useMutation({
-    mutationFn: async ({ id, status }: { id: number; status: string }) => {
-      return await apiRequest("PATCH", `/api/agendamentos/${id}/status`, {
-        status,
-      });
-    },
+    mutationFn: ({ id, status }: { id: number; status: string }) =>
+      apiRequest("PATCH", `/api/agendamentos/${id}/status`, { status }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/agendamentos"] });
       toast({
         title: "Status Atualizado",
-        description: "O status do agendamento foi atualizado com sucesso.",
-        duration: 3000,
+        description: "O status do agendamento foi atualizado.",
       });
     },
-    onError: (error: any) => {
+    onError: (error: any) =>
       toast({
         title: "Erro",
-        description: error.message || "Não foi possível atualizar o status.",
+        description: error.message,
         variant: "destructive",
-        duration: 3000,
-      });
-    },
+      }),
   });
 
   const deleteAgendamentoMutation = useMutation({
-    mutationFn: async (id: number) => {
-      return await apiRequest("DELETE", `/api/agendamentos/${id}`);
-    },
+    mutationFn: (id: number) => apiRequest("DELETE", `/api/agendamentos/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/agendamentos"] });
-      toast({
-        title: "Agendamento Excluído",
-        description: "O agendamento foi excluído com sucesso.",
-        duration: 3000,
-      });
+      toast({ title: "Agendamento Excluído" });
     },
-    onError: (error: any) => {
+    onError: (error: any) =>
       toast({
         title: "Erro",
-        description: error.message || "Não foi possível excluir o agendamento.",
+        description: error.message,
         variant: "destructive",
-        duration: 3000,
-      });
-    },
+      }),
   });
 
   const loginMutation = useMutation({
-    mutationFn: async () => {
-      return await apiRequest("POST", "/api/login", { username, password });
-    },
+    mutationFn: () => apiRequest("POST", "/api/login", { username, password }),
     onSuccess: async (response) => {
       if (!response.ok) {
         const errorData = await response.json();
@@ -106,30 +306,27 @@ export default function Admin() {
         setIsAuthenticated(true);
         toast({
           title: "Acesso Autorizado",
-          description: "Bem-vindo ao painel administrativo.",
+          description: "Bem-vindo ao painel.",
         });
       } else {
         throw new Error(result.message || "Falha no login.");
       }
     },
-    onError: (error: any) => {
+    onError: (error: any) =>
       toast({
         title: "Acesso Negado",
         description: error.message,
         variant: "destructive",
-      });
-    },
+      }),
   });
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     loginMutation.mutate();
   };
-
-  // FUNÇÃO DE LOGOUT CORRIGIDA
   const handleLogout = () => {
-    localStorage.removeItem("authToken"); // Remove o token
-    setIsAuthenticated(false); // Atualiza o estado
+    localStorage.removeItem("authToken");
+    setIsAuthenticated(false);
   };
 
   const getStatusBadge = (status: string) => {
@@ -150,15 +347,13 @@ export default function Admin() {
     return agendamento.status === filter;
   });
 
-  const todayAppointments = agendamentos?.filter((agendamento) => {
-    const today = new Date();
-    const appointmentDate = new Date(agendamento.data_hora_inicio);
-    return appointmentDate.toDateString() === today.toDateString();
-  });
-
   const stats = {
     total: agendamentos?.length || 0,
-    hoje: todayAppointments?.length || 0,
+    hoje:
+      agendamentos?.filter(
+        (a) =>
+          formatDate(new Date(a.data_hora_inicio)) === formatDate(new Date())
+      ).length || 0,
     confirmados:
       agendamentos?.filter((a) => a.status === "confirmado").length || 0,
     concluidos:
@@ -174,7 +369,7 @@ export default function Admin() {
             <CardTitle className="text-2xl font-display text-elite-gold">
               Painel Administrativo
             </CardTitle>
-            <p className="text-gray-400">Digite a senha para acessar</p>
+            <p className="text-gray-400">Digite as credenciais para acessar</p>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleLogin} className="space-y-4">
@@ -184,7 +379,7 @@ export default function Admin() {
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   placeholder="Usuário"
-                  className="bg-black border-gray-600 text-white focus:border-elite-gold"
+                  className="bg-black border-gray-600"
                   required
                 />
               </div>
@@ -193,8 +388,8 @@ export default function Admin() {
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Senha de administrador"
-                  className="bg-black border-gray-600 text-white focus:border-elite-gold"
+                  placeholder="Senha"
+                  className="bg-black border-gray-600"
                   required
                 />
               </div>
@@ -215,27 +410,25 @@ export default function Admin() {
   return (
     <div className="min-h-screen bg-black">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header */}
         <div className="flex justify-between items-center mb-8">
           <div>
             <h1 className="text-3xl font-display font-bold text-elite-gold">
               Painel Administrativo
             </h1>
             <p className="text-gray-400">
-              Gerencie os agendamentos da barbearia
+              Gerencie os agendamentos e bloqueios da barbearia
             </p>
           </div>
           <Button
-            onClick={handleLogout} // <-- MUDANÇA IMPORTANTE AQUI
+            onClick={handleLogout}
             variant="outline"
-            className="border-gray-600 text-gray-300 hover:bg-gray-600"
+            className="border-gray-600 hover:bg-gray-600"
           >
             <EyeOff className="mr-2 h-4 w-4" />
             Sair
           </Button>
         </div>
 
-        {/* Stats Cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
           <Card className="elite-gray">
             <CardContent className="p-4">
@@ -250,7 +443,6 @@ export default function Admin() {
               </div>
             </CardContent>
           </Card>
-
           <Card className="elite-gray">
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
@@ -264,7 +456,6 @@ export default function Admin() {
               </div>
             </CardContent>
           </Card>
-
           <Card className="elite-gray">
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
@@ -278,7 +469,6 @@ export default function Admin() {
               </div>
             </CardContent>
           </Card>
-
           <Card className="elite-gray">
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
@@ -294,178 +484,145 @@ export default function Admin() {
           </Card>
         </div>
 
-        {/* Filter Buttons */}
         <div className="flex flex-wrap gap-2 mb-6">
-          {[
-            { key: "todos", label: "Todos" },
-            { key: "confirmado", label: "Confirmados" },
-            { key: "concluido", label: "Concluídos" },
-            { key: "cancelado", label: "Cancelados" },
-          ].map((filterOption) => (
+          {["todos", "confirmado", "concluido", "cancelado"].map((f) => (
             <Button
-              key={filterOption.key}
-              onClick={() => setFilter(filterOption.key as any)}
-              variant={filter === filterOption.key ? "default" : "outline"}
+              key={f}
+              onClick={() => setFilter(f as any)}
+              variant={filter === f ? "default" : "outline"}
               size="sm"
               className={
-                filter === filterOption.key
+                filter === f
                   ? "bg-elite-gold text-black hover:bg-yellow-500"
                   : "border-gray-600 text-gray-300 hover:bg-gray-600"
               }
             >
-              {filterOption.label}
+              {f.charAt(0).toUpperCase() + f.slice(1)}
             </Button>
           ))}
         </div>
 
-        {/* Appointments List */}
         <Card className="elite-gray">
           <CardHeader>
-            <CardTitle className="text-elite-gold">
-              Agendamentos{" "}
-              {filter !== "todos" &&
-                `- ${filter.charAt(0).toUpperCase() + filter.slice(1)}`}
-            </CardTitle>
+            <CardTitle className="text-elite-gold">Agendamentos</CardTitle>
           </CardHeader>
           <CardContent>
             {isLoading ? (
-              <div className="space-y-4">
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <div
-                    key={i}
-                    className="h-20 bg-gray-700 rounded animate-pulse"
-                  ></div>
-                ))}
-              </div>
+              <p>A carregar agendamentos...</p>
             ) : filteredAgendamentos && filteredAgendamentos.length > 0 ? (
               <div className="space-y-4">
-                {filteredAgendamentos
-                  .sort(
-                    (a, b) =>
-                      new Date(b.data_hora_inicio).getTime() -
-                      new Date(a.data_hora_inicio).getTime()
-                  )
-                  .map((agendamento) => (
-                    <Card
-                      key={agendamento.id}
-                      className="bg-black border-gray-700"
-                    >
-                      <CardContent className="p-4">
-                        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-                          {/* Main Info */}
-                          <div className="flex-1 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                            <div>
-                              <p className="text-sm text-gray-400 mb-1">
-                                Cliente
-                              </p>
-                              <p className="font-semibold flex items-center">
-                                <User className="mr-2 h-4 w-4 text-elite-gold" />
-                                {agendamento.nome_cliente}
-                              </p>
-                              <p className="text-sm text-gray-400 flex items-center mt-1">
-                                <Phone className="mr-1 h-3 w-3" />
-                                {agendamento.telefone_cliente}
-                              </p>
-                              <p className="text-sm text-gray-400 flex items-center mt-1">
-                                <Mail className="mr-1 h-3 w-3" />
-                                {agendamento.email_cliente}
-                              </p>
-                            </div>
-
-                            <div>
-                              <p className="text-sm text-gray-400 mb-1">
-                                Serviço
-                              </p>
-                              <p className="font-semibold">
-                                {agendamento.servico.nome}
-                              </p>
-                              <p className="text-sm text-gray-400">
-                                {formatDuration(
-                                  agendamento.servico.duracao_minutos
-                                )}{" "}
-                                - {formatCurrency(agendamento.servico.preco)}
-                              </p>
-                            </div>
-
-                            <div>
-                              <p className="text-sm text-gray-400 mb-1">
-                                Barbeiro
-                              </p>
-                              <p className="font-semibold">
-                                {agendamento.barbeiro.nome}
-                              </p>
-                              <p className="text-sm text-gray-400">
-                                {formatDateTime(agendamento.data_hora_inicio)}
-                              </p>
-                            </div>
-
-                            <div>
-                              <p className="text-sm text-gray-400 mb-1">
-                                Status
-                              </p>
-                              {getStatusBadge(agendamento.status)}
-                              {agendamento.observacoes && (
-                                <p className="text-xs text-gray-400 mt-2">
-                                  <strong>Obs:</strong>{" "}
-                                  {agendamento.observacoes}
-                                </p>
-                              )}
-                            </div>
+                {filteredAgendamentos.map((agendamento) => (
+                  <Card
+                    key={agendamento.id}
+                    className="bg-black border-gray-700"
+                  >
+                    <CardContent className="p-4">
+                      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                        <div className="flex-1 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                          <div>
+                            <p className="text-sm text-gray-400 mb-1">
+                              Cliente
+                            </p>
+                            <p className="font-semibold flex items-center">
+                              <User className="mr-2 h-4 w-4 text-elite-gold" />
+                              {agendamento.nome_cliente}
+                            </p>
+                            <p className="text-sm text-gray-400 flex items-center mt-1">
+                              <Phone className="mr-1 h-3 w-3" />
+                              {agendamento.telefone_cliente}
+                            </p>
+                            <p className="text-sm text-gray-400 flex items-center mt-1">
+                              <Mail className="mr-1 h-3 w-3" />
+                              {agendamento.email_cliente}
+                            </p>
                           </div>
-
-                          {/* Actions */}
-                          <div className="flex flex-wrap gap-2">
-                            {agendamento.status === "confirmado" && (
-                              <Button
-                                size="sm"
-                                onClick={() =>
-                                  updateStatusMutation.mutate({
-                                    id: agendamento.id,
-                                    status: "concluido",
-                                  })
-                                }
-                                className="bg-green-600 hover:bg-green-700 text-white"
-                                disabled={updateStatusMutation.isPending}
-                              >
-                                <CheckCircle className="mr-1 h-3 w-3" />
-                                Concluir
-                              </Button>
+                          <div>
+                            <p className="text-sm text-gray-400 mb-1">
+                              Serviço
+                            </p>
+                            <p className="font-semibold">
+                              {agendamento.servico.nome}
+                            </p>
+                            <p className="text-sm text-gray-400">
+                              {formatDuration(
+                                agendamento.servico.duracao_minutos
+                              )}{" "}
+                              - {formatCurrency(agendamento.servico.preco)}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-sm text-gray-400 mb-1">
+                              Barbeiro
+                            </p>
+                            <p className="font-semibold">
+                              {agendamento.barbeiro.nome}
+                            </p>
+                            <p className="text-sm text-gray-400">
+                              {formatDateTime(
+                                new Date(agendamento.data_hora_inicio)
+                              )}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-sm text-gray-400 mb-1">Status</p>
+                            {getStatusBadge(agendamento.status)}
+                            {agendamento.observacoes && (
+                              <p className="text-xs text-gray-400 mt-2">
+                                <strong>Obs:</strong> {agendamento.observacoes}
+                              </p>
                             )}
-
-                            {agendamento.status === "confirmado" && (
-                              <Button
-                                size="sm"
-                                variant="destructive"
-                                onClick={() =>
-                                  updateStatusMutation.mutate({
-                                    id: agendamento.id,
-                                    status: "cancelado",
-                                  })
-                                }
-                                disabled={updateStatusMutation.isPending}
-                              >
-                                <XCircle className="mr-1 h-3 w-3" />
-                                Cancelar
-                              </Button>
-                            )}
-
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() =>
-                                deleteAgendamentoMutation.mutate(agendamento.id)
-                              }
-                              className="border-gray-600 text-gray-300 hover:bg-red-600 hover:border-red-600"
-                              disabled={deleteAgendamentoMutation.isPending}
-                            >
-                              <Trash2 className="mr-1 h-3 w-3" />
-                              Excluir
-                            </Button>
                           </div>
                         </div>
-                      </CardContent>
-                    </Card>
-                  ))}
+                        <div className="flex flex-wrap gap-2">
+                          {agendamento.status === "confirmado" && (
+                            <Button
+                              size="sm"
+                              onClick={() =>
+                                updateStatusMutation.mutate({
+                                  id: agendamento.id,
+                                  status: "concluido",
+                                })
+                              }
+                              className="bg-green-600 hover:bg-green-700"
+                              disabled={updateStatusMutation.isPending}
+                            >
+                              <CheckCircle className="mr-1 h-3 w-3" />
+                              Concluir
+                            </Button>
+                          )}
+                          {agendamento.status === "confirmado" && (
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              onClick={() =>
+                                updateStatusMutation.mutate({
+                                  id: agendamento.id,
+                                  status: "cancelado",
+                                })
+                              }
+                              disabled={updateStatusMutation.isPending}
+                            >
+                              <XCircle className="mr-1 h-3 w-3" />
+                              Cancelar
+                            </Button>
+                          )}
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() =>
+                              deleteAgendamentoMutation.mutate(agendamento.id)
+                            }
+                            className="border-gray-600 text-gray-300 hover:bg-red-600 hover:border-red-600"
+                            disabled={deleteAgendamentoMutation.isPending}
+                          >
+                            <Trash2 className="mr-1 h-3 w-3" />
+                            Excluir
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
               </div>
             ) : (
               <div className="text-center py-12">
@@ -473,15 +630,12 @@ export default function Admin() {
                 <h3 className="text-lg font-semibold text-gray-400 mb-2">
                   Nenhum agendamento encontrado
                 </h3>
-                <p className="text-gray-500">
-                  {filter === "todos"
-                    ? "Ainda não há agendamentos no sistema."
-                    : `Não há agendamentos com status "${filter}".`}
-                </p>
               </div>
             )}
           </CardContent>
         </Card>
+
+        <ScheduleBlockManager />
       </div>
     </div>
   );

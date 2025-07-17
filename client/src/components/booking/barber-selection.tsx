@@ -22,8 +22,8 @@ export default function BarberSelection({
     queryKey: ["/api/barbeiros"],
   });
 
-  const handleBarberSelect = (barbeiro: Barbeiro | null) => {
-    updateBookingData({ barbeiro_id: barbeiro?.id });
+  const handleBarberSelect = (barbeiroId: Barbeiro | null) => {
+    updateBookingData({ barbeiro_id: barbeiroId?.id });
   };
 
   const handleContinue = () => {
