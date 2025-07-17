@@ -18,8 +18,6 @@ Este é um template profissional para barbearias que permite:
 - **Páginas**: Início, Serviços, Agendamento, Contato
 
 ### 👨‍💼 Painel Administrativo
-- **URL**: `/admin`
-- **Senha padrão**: `admin123`
 - **Funcionalidades**: Gerenciar agendamentos, visualizar relatórios
 
 ## 📁 Estrutura do Projeto
@@ -133,7 +131,7 @@ npm run dev
 ## 📈 Roadmap
 
 ### Próximas Funcionalidades
-- [ ] Notificações WhatsApp
+- [x] Notificações WhatsApp
 - [ ] Integração Google Calendar
 - [ ] Sistema de avaliações
 - [ ] Relatórios avançados
