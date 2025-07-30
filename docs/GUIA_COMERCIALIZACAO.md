@@ -7,6 +7,7 @@
 - **Salões de beleza masculinos** que ainda usam agenda de papel
 - **Barbeiros autônomos** que querem profissionalizar o negócio
 - **Novas barbearias** que precisam de uma solução completa
+- **Outros Negocios** que necessitam de agendamento de seus clientes
 
 ### 2. Proposta de Valor
 - **Economia de tempo**: Reduz ligações para agendamento em 80%
@@ -17,48 +18,49 @@
 
 ### 3. Estratégias de Abordagem
 
-#### A) Venda Direta (Porta a Porta)
+#### A) Venda Direta ("Porta a Porta" online)
 **Roteiro de Apresentação:**
 1. "Oi, sou [seu nome]. Vi que vocês têm uma barbearia incrível aqui"
 2. "Posso mostrar como outros barbeiros estão aumentando o faturamento em 30% com agendamento online?"
-3. **Demonstração ao vivo** no celular/tablet
-4. "Que tal testarmos por 30 dias sem compromisso?"
+3. **Demonstração ao vivo** por um deploy do sistema em modo demo (ou gravação)
+4. "Que tal testarmos por 7 dias sem compromisso?"
 
 #### B) Marketing Digital Local
 - **Google Meu Negócio**: Anuncie para "web design barbearia [sua cidade]"
 - **Facebook/Instagram**: Posts mostrando o antes/depois de barbearias
-- **WhatsApp Business**: Crie grupos de barbeiros da região
+- **WhatsApp Business**: Fechar negocio com grupos de barbeiros da região
 
 #### C) Parcerias Estratégicas
-- **Fornecedores de produtos para barbearia**: Ofereça comissão por indicação
-- **Associações de barbeiros**: Apresente em eventos do setor
+- **Fornecedores de produtos para barbearia**: Ofereça comissão por indicação (futuramente caso esteja dando muito lucro)
+- **Associações de barbeiros**: Apresente em eventos do setor 
 - **Influenciadores locais**: Barbeiros conhecidos na região
 
 ### 4. Pacotes de Preços Sugeridos
 
-#### 🥉 Pacote Básico - R$ 497
+#### 🥉 Pacote Básico - (Entre R$ 497 - 600)
 - Site responsivo personalizado
 - Sistema de agendamento
 - Painel administrativo
-- Suporte por 30 dias
+- Suporte por 1 mês 
 - **Ideal para**: Barbeiros autônomos
 
-#### 🥈 Pacote Profissional - R$ 897
+#### 🥈 Pacote Profissional -(Entre R$ 897 - 1000)
 - Tudo do básico +
-- Logo profissional personalizada
-- Integração WhatsApp
-- Google Analytics
-- Suporte por 90 dias
+- Logo profissional personalizada (feito por IA)
+- Integração WhatsApp (Caso cliente já possua whatsapp business por exemplo)
+- Google Analytics (implementar, não foi feito a implantação ainda)
+- Suporte por 3 meses
 - **Ideal para**: Barbearias estabelecidas
 
-#### 🥇 Pacote Premium - R$ 1.497
+#### 🥇 Pacote Premium - (Entre R$ 1.497 - 2500)
 - Tudo do profissional +
-- Fotografia profissional
-- SEO local otimizado
-- Redes sociais integradas
-- Treinamento da equipe
-- Suporte por 1 ano
+- SEO otimizado
+- Mais Customização para o cliente (Fazer alterações x ou y de acordo com o cliente)
+- Treinamento da equipe (Gravar um treinamento em como utilizar o sistema e distrubuir para a equipe do cliente)
+- Suporte por 6 meses a 1 ano (depende de quanto o cliente paga)
 - **Ideal para**: Redes de barbearias
+
+**Obs.:** Suporte é somente com backups do sistema do cliente, e em caso que fique offline. Dar apoio maior para pacote premium. 
 
 ### 5. Argumentos de Venda Irresistíveis
 

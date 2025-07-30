@@ -1,6 +1,6 @@
-# 💈 Elite Barber System
+# 💈 Elite BarberBooking
 
-Sistema completo de agendamento online para barbearias com painel administrativo e design responsivo.
+Apresentação do sistema completo de agendamento online para barbearias com painel administrativo e design responsivo.
 
 ## 🎯 Visão Geral
 
@@ -39,6 +39,29 @@ elite-barber-system/
 ├── 🔗 shared/                        # Código compartilhado
 └── 📋 package.json                   # Dependências
 ```
+
+## 🎨 Personalização
+
+Para personalizar o sistema para cada cliente:
+
+1. **Coleta de dados**: Use os formulários em `/docs/`
+2. **Configuração**: Execute `scripts/personalizar.js`
+3. **Banco de dados**: Insira serviços e barbeiros
+4. **Teste**: Valide todas as funcionalidades
+
+Ver [documentação completa](docs/PERSONALIZACAO_CLIENTE.md) para detalhes.
+
+## 💰 Comercialização
+
+Ver [guia de comercialização](docs/GUIA_COMERCIALIZACAO.md) para estratégias completas.
+
+## 📚 Documentação
+
+- 📖 **[Documentação Técnica](docs/DOCUMENTACAO_COMPLETA.md)** - Arquitetura e APIs
+- 💼 **[Guia Comercial](docs/GUIA_COMERCIALIZACAO.md)** - Como vender o template
+- 🎨 **[Personalização](docs/PERSONALIZACAO_CLIENTE.md)** - Customização para clientes
+- 🎯 **[Apresentação](docs/APRESENTACAO_COMERCIAL.md)** - Scripts de vendas
+
 
 ## ⚡ Comandos Rápidos
 
@@ -131,7 +154,7 @@ npm run dev
 ## 📈 Roadmap
 
 ### Próximas Funcionalidades
-- [x] Notificações WhatsApp
+- [x] Notificações WhatsApp (em andamento)
 - [ ] Integração Google Calendar
 - [ ] Sistema de avaliações
 - [ ] Relatórios avançados
@@ -143,7 +166,5 @@ npm run dev
 - [ ] API pública
 
 ---
-
-**Desenvolvido com ❤️ para barbeiros modernos**
 
 *Última atualização: Junho 2025*

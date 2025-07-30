@@ -27,7 +27,7 @@ Este é um sistema completo de agendamento online para barbearias, desenvolvido 
 #### Infraestrutura
 - **Vite** como build tool
 - **Neon** para PostgreSQL serverless
-- **Replit** para desenvolvimento e deploy
+- **Render** e **Vercel** para deploy
 
 ### Estrutura de Diretórios
 
@@ -42,24 +42,27 @@ Este é um sistema completo de agendamento online para barbearias, desenvolvido 
 │   │   ├── hooks/          # Custom hooks
 │   │   ├── lib/            # Utilitários e configurações
 │   │   ├── pages/          # Páginas da aplicação
+│   │   ├── utils/          # Ferramentes utilitarias
 │   │   ├── App.tsx         # Componente principal
 │   │   ├── main.tsx        # Entry point
 │   │   └── index.css       # Estilos globais
 │   └── index.html          # Template HTML
+├── docs/                   # Todos os documentos para comercialização
 ├── server/                 # Backend Express
+│   ├── auth.ts             # Autenticação página admin
+│   ├── db.ts               # Configuração do banco
 │   ├── index.ts            # Entry point do servidor
+│   ├── notifications.ts    # Integração com notificações WhatsApp
 │   ├── routes.ts           # Definição das rotas da API
 │   ├── storage.ts          # Camada de acesso aos dados
-│   ├── db.ts               # Configuração do banco
 │   └── vite.ts             # Integração com Vite
 ├── shared/                 # Código compartilhado
 │   └── schema.ts           # Schemas do banco e validação
-├── attached_assets/        # Arquivos anexados pelo usuário
 ├── package.json            # Dependências
 ├── drizzle.config.ts       # Configuração do Drizzle
 ├── vite.config.ts          # Configuração do Vite
 ├── tailwind.config.ts      # Configuração do Tailwind
-└── replit.md               # Documentação do projeto
+└── README.md               # Apresentação do projeto
 ```
 
 ## 🗄️ Estrutura do Banco de Dados
@@ -527,4 +530,4 @@ PORT=5000
 
 ---
 
-**Esta documentação é atualizada constantemente. Última atualização: 30/06/2025**
+**Esta documentação é atualizada constantemente. Última atualização: 30/07/2025**
