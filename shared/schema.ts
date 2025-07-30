@@ -104,8 +104,8 @@ export const bloqueiosAgenda = pgTable("bloqueios_agenda", {
   data_fim: timestamp("data_fim", { withTimezone: true }).notNull(),
   motivo: text("motivo"), // Ex: "Almoço", "Férias", "Feriado"
 
-  // Se o barbeiro_id for nulo, o bloqueio se aplica a toda a barbearia.
-  // Se tiver um ID, o bloqueio é apenas para aquele barbeiro.
+  /*/ Se o barbeiro_id for nulo, o bloqueio se aplica a toda a barbearia.
+  Se tiver um ID, o bloqueio é apenas para aquele barbeiro. /*/
   barbeiro_id: integer("barbeiro_id").references(() => barbeiros.id),
 });
 

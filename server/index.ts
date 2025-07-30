@@ -60,7 +60,6 @@ app.use((req, res, next) => {
       const message = err.message || "Internal Server Error";
 
       res.status(status).json({ message });
-      // Não relance o erro aqui, pois pode causar um crash. O log já é suficiente.
       console.error("UNHANDLED ERROR:", err);
     });
 

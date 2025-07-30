@@ -36,9 +36,8 @@ function formatarDataHora(data: Date): string {
   }).format(data);
 }
 
-/**
- * Envia uma mensagem de confirmação de agendamento.
- */
+
+ //Envia uma mensagem de confirmação de agendamento.
 export async function enviarWhatsappConfirmacao(
   agendamento: AgendamentoComRelacoes
 ): Promise<void> {
@@ -56,7 +55,7 @@ export async function enviarWhatsappConfirmacao(
 *Barbeiro:* ${agendamento.barbeiro.nome}
 *Data e Hora:* ${formatarDataHora(new Date(agendamento.data_hora_inicio))}
 
-Aguardamos por si! Se precisar, entre em contato pelo número (11) 99999-9999.`;
+Aguardamos por ti! Se precisar, entre em contato pelo número (11) 99999-9999.`;
 
   try {
     await twilioClient.messages.create({
@@ -73,9 +72,8 @@ Aguardamos por si! Se precisar, entre em contato pelo número (11) 99999-9999.`;
   }
 }
 
-/**
- * Envia uma mensagem de cancelamento de agendamento.
- */
+// Envia uma mensagem de cancelamento de agendamento.
+
 export async function enviarWhatsappCancelamento(
   agendamento: AgendamentoComRelacoes
 ): Promise<void> {
