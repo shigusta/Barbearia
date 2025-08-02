@@ -102,7 +102,7 @@ export default function CustomerInfo({
             type="tel"
             value={bookingData.telefone_cliente || ''}
             onChange={(e) => handlePhoneChange(e.target.value)}
-            placeholder="(11) 99999-9999"
+            placeholder="(61) 985526715"
             className={`bg-black border-gray-600 text-white focus:border-elite-gold ${
               errors.telefone_cliente ? 'border-red-500' : ''
             }`}

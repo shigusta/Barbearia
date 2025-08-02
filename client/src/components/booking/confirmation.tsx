@@ -150,7 +150,7 @@ export default function Confirmation({
 
         <div className="space-y-4">
           <p className="text-gray-400">
-            📱 Salve nosso contato: <strong>(11) 99999-9999</strong>
+            📱 Salve nosso contato: <strong>(61) 985526715</strong>
           </p>
           <p className="text-gray-400">
             📍 Endereço: Rua das Palmeiras, 123 - Centro, São Paulo
@@ -278,12 +278,12 @@ export default function Confirmation({
               Local do Atendimento
             </h4>
             <div className="space-y-2">
-              <p className="font-semibold">Elite Barber Shop</p>
+              <p className="font-semibold">Lublack Hair Shop</p>
               <p className="text-gray-300">Rua das Palmeiras, 123</p>
               <p className="text-gray-300">Centro, São Paulo - SP</p>
               <p className="text-gray-300">CEP: 01234-567</p>
               <p className="text-sm text-gray-400 mt-3">
-                📞 (11) 99999-9999 | WhatsApp disponível
+                📞 (61) 985526715 | WhatsApp disponível
               </p>
             </div>
           </CardContent>

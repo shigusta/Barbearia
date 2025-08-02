@@ -67,7 +67,7 @@ export default function Services() {
             <div className="grid md:grid-cols-2 gap-12">
               <div>
                 <h2 className="text-3xl font-display font-bold mb-6 text-elite-gold">
-                  Por que Escolher a Elite Barber?
+                  Por que Escolher a Lublack Hair?
                 </h2>
                 <div className="space-y-4 text-gray-300">
                   <p>✓ Profissionais experientes e qualificados</p>

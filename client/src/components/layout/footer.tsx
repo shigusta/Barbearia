@@ -8,7 +8,7 @@ export default function Footer() {
         <div className="grid md:grid-cols-4 gap-8">
           <div className="md:col-span-2">
             <h3 className="text-2xl font-display font-bold text-elite-gold mb-4">
-              Elite Barber Shop
+              Lublack Hair
             </h3>
             <p className="text-gray-300 mb-4">
               Tradição, estilo e excelência em cada atendimento. Sua melhor versão começa aqui.
@@ -27,7 +27,7 @@ export default function Footer() {
                 <Facebook className="w-6 h-6" />
               </a>
               <a
-                href="https://wa.me/5511999999999"
+                href="https://wa.me/5561985526715"
                 className="text-gray-400 hover:text-elite-gold transition-colors duration-300"
               >
                 <Phone className="w-6 h-6" />
@@ -72,16 +72,15 @@ export default function Footer() {
           <div>
             <h4 className="font-semibold mb-4">Contato</h4>
             <div className="space-y-2 text-gray-300">
-              <p>Rua das Palmeiras, 123</p>
-              <p>Centro, São Paulo - SP</p>
-              <p>(11) 99999-9999</p>
-              <p>contato@elitebarber.com</p>
+              <p>St. Tradicional, Av. São paulo</p>
+              <p>Brasilia, Planaltina-Df</p>
+              <p>(61) 985526715</p>
             </div>
           </div>
         </div>
 
         <div className="border-t border-elite-gray mt-8 pt-8 text-center text-gray-400">
-          <p>&copy; 2024 Elite Barber Shop. Todos os direitos reservados.</p>
+          <p>&copy; 2025 Lublack Hair. Todos os direitos reservados.</p>
         </div>
       </div>
     </footer>

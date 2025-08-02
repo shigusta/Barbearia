@@ -152,7 +152,7 @@ export default function Home() {
           <div className="grid lg:grid-cols-2 gap-12 items-center">
             <div>
               <h2 className="text-4xl md:text-5xl font-display font-bold mb-6">
-                Sobre a <span className="text-elite-gold">Elite Barber</span>
+                Sobre a <span className="text-elite-gold">Lublack Hair</span>
               </h2>
               <p className="text-xl text-gray-300 mb-6">
                 Desde 2010, combinamos a tradição da barbearia clássica com técnicas modernas e produtos de alta qualidade. Nossa missão é proporcionar uma experiência única, onde cada cliente sai renovado e confiante.

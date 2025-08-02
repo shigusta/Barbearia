@@ -152,8 +152,8 @@ export default function Contact() {
                     <div>
                       <h4 className="font-semibold mb-1">Endereço</h4>
                       <p className="text-gray-300">
-                        Rua das Palmeiras, 123<br />
-                        Centro, São Paulo - SP<br />
+                        Rua Pará - Planaltina-Df<br />
+                        St. Tradicional<br />
                         CEP: 01234-567
                       </p>
                     </div>
@@ -165,7 +165,7 @@ export default function Contact() {
                     </div>
                     <div>
                       <h4 className="font-semibold mb-1">Telefone</h4>
-                      <p className="text-gray-300">(11) 99999-9999</p>
+                      <p className="text-gray-300">(61) 98552-6715</p>
                       <p className="text-sm text-gray-400">WhatsApp disponível</p>
                     </div>
                   </div>
@@ -212,7 +212,7 @@ export default function Contact() {
                       <Facebook className="h-6 w-6" />
                     </a>
                     <a
-                      href="https://wa.me/5511999999999"
+                      href="https://wa.me/5511985526715"
                       className="bg-elite-gray hover:bg-elite-gold text-white hover:text-black w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300"
                     >
                       <MessageCircle className="h-6 w-6" />
@@ -252,7 +252,7 @@ export default function Contact() {
                           type="tel"
                           value={formData.telefone}
                           onChange={(e) => handleInputChange('telefone', e.target.value)}
-                          placeholder="(11) 99999-9999"
+                          placeholder="(61) 985526715"
                           className="bg-black border-gray-600 text-white focus:border-elite-gold"
                         />
                       </div>
@@ -346,7 +346,7 @@ export default function Contact() {
                 Nossa <span className="text-elite-gold">Localização</span>
               </h2>
               <p className="text-gray-300">
-                Venha nos visitar! Estamos localizados no coração de São Paulo.
+                Venha nos visitar! Estamos localizados no coração de Planaltina-Df.
               </p>
             </div>
             
@@ -361,7 +361,7 @@ export default function Contact() {
                     allowFullScreen
                     loading="lazy"
                     referrerPolicy="no-referrer-when-downgrade"
-                    title="Elite Barber Shop - Localização"
+                    title="Lublack Hair - Localização"
                   />
                 </div>
               </CardContent>
