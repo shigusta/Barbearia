@@ -1,3 +1,5 @@
+import 'dotenv/config';
+// ...existing code...
 import express, { type Request, Response, NextFunction } from "express";
 import http from "http";
 import { registerRoutes } from "./routes";

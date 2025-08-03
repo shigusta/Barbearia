@@ -49,13 +49,13 @@ export async function enviarWhatsappConfirmacao(
   const numeroCliente = formatarNumeroWhatsapp(agendamento.telefone_cliente);
   const mensagem = `🎉 Olá, ${
     agendamento.nome_cliente
-  }! Seu agendamento na Elite Barber foi *confirmado*!
+  }! Seu agendamento na Lublack Hair foi *confirmado*!
 
 *Serviço:* ${agendamento.servico.nome}
 *Barbeiro:* ${agendamento.barbeiro.nome}
 *Data e Hora:* ${formatarDataHora(new Date(agendamento.data_hora_inicio))}
 
-Aguardamos por ti! Se precisar, entre em contato pelo número (11) 99999-9999.`;
+Aguardamos por ti! Se precisar, entre em contato pelo número (61) 985526715.`;
 
   try {
     await twilioClient.messages.create({
@@ -85,11 +85,11 @@ export async function enviarWhatsappCancelamento(
   const numeroCliente = formatarNumeroWhatsapp(agendamento.telefone_cliente);
   const mensagem = `😕 Olá, ${
     agendamento.nome_cliente
-  }. Informamos que o seu agendamento na Elite Barber para ${formatarDataHora(
+  }. Informamos que o seu agendamento na Lublack Hair para ${formatarDataHora(
     new Date(agendamento.data_hora_inicio)
   )} foi *cancelado*.
 
-Para reagendar ou em caso de dúvidas, por favor, entre em contato conosco pelo número (11) 99999-9999.
+Para reagendar ou em caso de dúvidas, por favor, entre em contato conosco pelo número (61) 985526715.
 Pedimos desculpa por qualquer inconveniente.`;
 
   try {
