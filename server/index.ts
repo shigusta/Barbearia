@@ -70,8 +70,8 @@ app.use((req, res, next) => {
     } else {
       serveStatic(app);
     }
-    const port = 5000;
-    const host = "127.0.0.1";
+    const port = process.env.PORT || 5000; // Usa a porta do ambiente (Render) ou 5000 como fallback
+    const host = "0.0.0.0"; // Garante que o servidor seja acessível externamente
 
     // 5. Alterado: server.listen() agora é chamado no servidor HTTP real
     server.listen(
