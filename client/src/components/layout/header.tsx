@@ -28,7 +28,7 @@ export default function Header() {
           <div className="flex items-center">
             <Link href="/">
               <h1 className="text-2xl font-display font-bold text-elite-gold cursor-pointer">
-                Elite Barber
+                Lublack Hair
               </h1>
             </Link>
           </div>
